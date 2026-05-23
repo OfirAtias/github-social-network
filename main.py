@@ -1,22 +1,49 @@
 import pandas as pd
-import requests
-import json
+import os
 
-# 1. Define direct URLs to the Stanford SNAP datasets
-edges_url = "https://snap.stanford.edu/data/musae_git_edges.csv"
-targets_url = "https://snap.stanford.edu/data/musae_git_target_idents.json"
+print("========================")
+print("   GITHUB SOCIAL NETWORK ")
+print("========================")
 
-# 2. Download and load the network edges (connections) directly into a Pandas DataFrame
-print("Starting to download network edges...")
-edges_df = pd.read_csv(edges_url)
-print(f"Edges loaded successfully! Total connections found: {len(edges_df)}")
+base_dir = os.path.dirname(os.path.abspath(__file__))
 
-# 3. Download and load the node features/targets (user classification)
-print("\nStarting to download node targets...")
-response = requests.get(targets_url)
-target_data = response.json()
-print(f"Targets loaded successfully! Total users found: {len(target_data)}")
+# 1. Define exact paths based on the debug output
+edges_path = os.path.join(base_dir, "data", "musae_git_edges.csv")
+targets_path = os.path.join(base_dir, "data", "musae_git_target.csv")
 
-# 4. Preview the first 5 rows of the dataset to verify everything works
-print("\nPreviewing the first 5 edges in the graph:")
-print(edges_df.head())
+if os.path.exists(edges_path) and os.path.exists(targets_path):
+    # 2. Load the Edges (Connections)
+    edges_df = pd.read_csv(edges_path)
+    total_connections = len(edges_df)
+    
+    # 3. Load the Targets (Nodes and Classifications)
+    nodes_df = pd.read_csv(targets_path)
+    total_users = len(nodes_df)
+    
+    # 4. Calculate network metrics
+    avg_connections = (2 * total_connections) / total_users if total_users > 0 else 0
+    
+    # Print clean results for your presentation slides
+    print(f"Total Nodes (Number of Developers): {total_users:,}")
+    print(f"Total Edges (Number of Connections): {total_connections:,}")
+    print(f"Average Number of Followers per User: {avg_connections:.2f}")
+    
+    # 5. Calculate Web vs ML distribution
+    # Let's check the column name for the classification (usually 'ml_target')
+    target_col = [col for col in nodes_df.columns if 'target' in col or 'ml' in col]
+    
+    if target_col:
+        col_name = target_col[0]
+        counts = nodes_df[col_name].value_counts()
+        web_devs = counts.get(0, 0)
+        ml_devs = counts.get(1, 0)
+        
+        print("\n--- Developer Specialization Split (EDA) ---")
+        print(f" -> Web Developers count (Class 0): {web_devs:,} ({web_devs/total_users*100:.1f}%)")
+        print(f" -> Machine Learning Developers count (Class 1): {ml_devs:,} ({ml_devs/total_users*100:.1f}%)")
+    else:
+        print("\n--- Target File Structure ---")
+        print(nodes_df.head())
+        
+else:
+    print("[-] Error: Files not found. Please check paths.")
