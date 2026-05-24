@@ -1,7 +1,7 @@
 import networkx as nx
 from data_loader import load_github_graph
 from visualizer import plot_class_distribution, plot_degree_distribution
-from metrics import calculate_top_centralities, detect_communities_louvain
+from metrics import calculate_top_centralities, detect_communities_louvain, detect_communities_girvan_newman
 
 def main():
     print("==================================================")
@@ -26,7 +26,8 @@ def main():
         top_degree, top_between = calculate_top_centralities(G, top_n=5)
         
         # 4. Community Detection (Exercise 2 Focus)
-        communities = detect_communities_louvain(G)
+        communities_louvain = detect_communities_louvain(G)
+        communities_gn = detect_communities_girvan_newman(G, top_nodes=500)
         
         # 5. Visualizations
         print("\n--- Generating Visualizations ---")
