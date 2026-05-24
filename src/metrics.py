@@ -49,6 +49,51 @@ def detect_communities_louvain(G):
     
     return communities
 
+def analyze_community_labels(communities, nodes_df, top_k=5):
+    """
+    Analyzes the composition of the top communities based on developer types (Web vs ML).
+    This is the '100-grade' analysis connecting structure to attributes!
+    """
+    print(f"\n[+] Analyzing Developer Types (Web/ML) for Top {top_k} Communities...")
+    
+    table = PrettyTable(["Community", "Size", "Web Devs (Target 0)", "ML Devs (Target 1)", "Dominant Group"])
+    
+    # Assuming the nodes_df index is the node ID, and the column is 'ml_target'
+    # Adjust 'ml_target' if your target column has a different name
+    target_col = 'ml_target' if 'ml_target' in nodes_df.columns else nodes_df.columns[-1]
+    
+    for i, comm in enumerate(communities[:top_k], 1):
+        web_count = 0
+        ml_count = 0
+        
+        for node in comm:
+            try:
+                # Get the label for the node
+                target_val = int(nodes_df.loc[int(node), target_col])
+                if target_val == 0:
+                    web_count += 1
+                elif target_val == 1:
+                    ml_count += 1
+            except (KeyError, ValueError):
+                continue # Skip if node metadata is missing
+                
+        total = web_count + ml_count
+        if total > 0:
+            web_pct = (web_count / total) * 100
+            ml_pct = (ml_count / total) * 100
+            dominant = "Machine Learning" if ml_pct > web_pct else "Web Development"
+            
+            table.add_row([
+                i, 
+                len(comm), 
+                f"{web_count} ({web_pct:.1f}%)", 
+                f"{ml_count} ({ml_pct:.1f}%)", 
+                dominant
+            ])
+            
+    print(table)
+
+
 def detect_communities_girvan_newman(G, top_nodes=500):
     """
     Runs Girvan-Newman community detection.
