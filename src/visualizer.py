@@ -1,33 +1,41 @@
 import matplotlib.pyplot as plt
 import collections
 import networkx as nx
-import os
+from pathlib import Path
+
+def get_output_dir():
+    """Creates and returns the path to the outputs/figures directory."""
+    current_dir = Path(__file__).resolve().parent
+    project_root = current_dir.parent
+    output_dir = project_root / "outputs" / "figures"
+    
+    # מוודא שהתיקייה קיימת, ואם לא - יוצר אותה אוטומטית
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
 
 def plot_class_distribution(nodes_df):
-    """Generates a pie chart showing the Web vs ML developer split."""
     print("[+] Generating Class Distribution Pie Chart...")
     counts = nodes_df['ml_target'].value_counts()
     
     labels = ['Web Developers (Class 0)', 'ML Developers (Class 1)']
     sizes = [counts.get(0, 0), counts.get(1, 0)]
-    colors = ['#1f77b4', '#ff7f0e']  # Tech blue and ML orange
+    colors = ['#1f77b4', '#ff7f0e'] 
     
     plt.figure(figsize=(6, 6))
     plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140, colors=colors, 
             textprops={'fontsize': 12, 'weight': 'bold'})
     plt.title("GitHub Dataset: Developer Specialization Split", fontsize=14, weight='bold', pad=20)
     
-    # Save the plot as an image for Canva
+    # שמירה לתיקיית היעדים החדשה
+    output_path = get_output_dir() / 'class_distribution.png'
     plt.tight_layout()
-    plt.savefig('class_distribution.png', dpi=300)
+    plt.savefig(output_path, dpi=300)
     plt.close()
-    print(" -> Saved: class_distribution.png")
+    print(f" -> Saved: {output_path}")
 
 def plot_degree_distribution(G):
-    """Generates a Degree Distribution plot showing the structural 'Power Law' of the network."""
     print("[+] Generating Degree Distribution Plot...")
     
-    # Calculate degrees for all nodes
     degree_sequence = sorted([d for n, d in G.degree()], reverse=True)
     degree_counts = collections.Counter(degree_sequence)
     deg, cnt = zip(*degree_counts.items())
@@ -39,12 +47,12 @@ def plot_degree_distribution(G):
     plt.ylabel("Number of Nodes (Developers)", fontsize=11)
     plt.xlabel("Degree (Number of Connections)", fontsize=11)
     
-    # Zooming in slightly on the main dense area of the distribution for clarity
     plt.xlim(0, 100) 
-    
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     
+    # שמירה לתיקיית היעדים החדשה
+    output_path = get_output_dir() / 'degree_distribution.png'
     plt.tight_layout()
-    plt.savefig('degree_distribution.png', dpi=300)
+    plt.savefig(output_path, dpi=300)
     plt.close()
-    print(" -> Saved: degree_distribution.png")
+    print(f" -> Saved: {output_path}")

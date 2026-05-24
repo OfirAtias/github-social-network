@@ -1,13 +1,19 @@
 import pandas as pd
-import os
 import networkx as nx
+from pathlib import Path
+import os
 
 def get_data_paths():
     """Returns the absolute paths to the local dataset files."""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    edges_path = os.path.join(base_dir, "data", "musae_git_edges.csv")
-    targets_path = os.path.join(base_dir, "data", "musae_git_target.csv")
-    return edges_path, targets_path
+    # מוצא את המיקום של הקובץ הנוכחי (בתוך src)
+    current_dir = Path(__file__).resolve().parent
+    # הולך צעד אחד אחורה לתיקיית הפרויקט הראשית
+    project_root = current_dir.parent
+    
+    edges_path = project_root / "data" / "musae_git_edges.csv"
+    targets_path = project_root / "data" / "musae_git_target.csv"
+    
+    return str(edges_path), str(targets_path)
 
 def load_github_graph():
     """Loads edges and node features, and returns a compiled NetworkX Graph object."""
@@ -26,7 +32,6 @@ def load_github_graph():
     
     print("[+] Attaching target classifications to nodes...")
     # Add target classifications (Web=0, ML=1) as node attributes
-    # mapping node IDs to their respective target class
     class_mapping = dict(zip(nodes_df['id'], nodes_df['ml_target']))
     nx.set_node_attributes(G, class_mapping, name='target')
     
