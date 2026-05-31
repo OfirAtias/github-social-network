@@ -1,14 +1,34 @@
-# Python environment and caches
+# Python bytecode and cache
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Virtual environments
 .venv/
 venv/
 env/
-.env
+ENV/
 
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints/
+# Packaging and build artifacts
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# OS generated files
+# OS and editor files
 .DS_Store
 Thumbs.db
+desktop.ini
+*.swp
+*.tmp
+*.temp
+
+# Optional generated outputs
+outputs/figures/*.png
+outputs/tables/*.csv
+outputs/tables/*.xlsx
