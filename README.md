@@ -1,31 +1,150 @@
-# GitHub Social Network Analysis
+# חיזוי תחום התמחות של מפתחי GitHub לפי קשרי מעקב הדדיים ברשת
 
-An academic project for the **Network Algorithms** course. This project focuses on analyzing the social network structure of GitHub developers and performing node classification using advanced network algorithms and machine learning techniques.
+## שאלת המחקר
+באיזו מידה מאפיינים מבניים של רשת קשרי המעקב ההדדיים בין מפתחי GitHub, ובפרט שכנות, מרכזיות וקהילות, מאפשרים לחזות האם מפתח משתייך לתחום Web או Machine Learning?
 
-## Project Overview
+## מטרת הפרויקט
+הפרויקט מתמקד בחיזוי תחום התמחות של מפתחי GitHub מתוך מבנה הרשת בלבד, ללא שימוש בתוכן טקסטואלי של פרופילים או מאגרים. בצורה זו ניתן לבדוק האם קשרי המעקב ההדדיים בין מפתחים מכילים סיגנל גרפי משמעותי לגבי תחום ההתמחות שלהם. ההשוואה בין מודל בסיסי, מודל שכנות, מאפיינים גרפיים, קהילות ואלגוריתם גרפי ישיר מאפשרת לבחון לא רק את רמת הדיוק של החיזוי, אלא גם איזה סוג מידע ברשת תורם יותר להבנת ההתמחות של המפתחים.
 
-The goal of this project is to predict whether a GitHub user is a **Web Developer** or a **Machine Learning Developer** based on their mutual follower connections and user features.
+## תיאור הדאטה
+הפרויקט מבוסס על דאטה סט GitHub Social Network (MUSAE), הכולל:
+- צמתים: מפתחי GitHub.
+- קשתות: קשרי מעקב הדדיים (mutual follower relationships) בין מפתחים.
+- תוויות: סיווג בינארי של המפתח ל-Web (`0`) או Machine Learning (`1`).
 
-We utilize the **MUSAE GitHub Social Network dataset** provided by Stanford University (SNAP).
+קבצי הדאטה בתיקיית `data/`:
+- `musae_git_edges.csv`
+- `musae_git_target.csv`
+- `musae_git_features.json`
+- `README.txt`
+- `citing.txt`
 
-### Dataset Statistics
+הקובץ `musae_git_features.json` נשמר כחלק מחבילת הדאטה, אך אינו משמש כקלט למודלי החיזוי בפרויקט זה. החיזוי מתבסס רק על מבנה הרשת, קשרי המעקב ההדדיים ותכונות שנגזרות מהגרף.
 
-- **Nodes (Users):** ~37,700
-- **Edges (Mutual Followers):** ~289,003
-- **Task:** Binary Node Classification (Web vs. ML)
+## מסגרת מתודולוגית
+הפרויקט ממומש כ-**network-only prediction**:
+- שימוש במאפיינים מבניים של הגרף בלבד.
+- ללא שימוש בתוכן פרופילים, טקסטים, repositories, מיקום, אימייל או מאפייני תוכן חיצוניים.
+- מאפיינים מבוססי תוויות, כגון יחסי שכנים או יחסי קהילה, מחושבים רק מתוויות צמתי האימון.
 
-## Methodology & Planned Approach
+הניסוי מוגדר כ-**transductive node classification**: מבנה הגרף ידוע מראש עבור כל הצמתים, כולל צמתי הבדיקה, אבל תוויות ה-test אינן משמשות באימון או בבחירת סף החלטה. כלומר, המודל יכול להשתמש בקשרים ברשת, אך לא בתשובות האמיתיות של קבוצת הבדיקה. הגדרה זו מתאימה לרשת GitHub, שבה לעיתים מבנה קשרי המעקב ידוע גם עבור מפתחים שתחום ההתמחות שלהם עדיין אינו ידוע.
 
-1. **Exploratory Data Analysis (EDA):** Analyze network degree distribution, density, centrality metrics (PageRank), and giant components.
-2. **Graph Embeddings:** Transform structural graph features into numerical vectors using techniques like `Node2Vec`.
-3. **Graph Neural Networks (GNNs):** Implement a `Graph Convolutional Network (GCN)` using PyTorch Geometric to perform node classification.
+## בניית הגרף
+הגרף נבנה כגרף לא-מכוון:
+- כל צומת מייצג מפתח GitHub.
+- כל קשת מייצגת קשר מעקב הדדי בין שני מפתחים.
+- אין משקלי קשתות בדאטה המקורי.
 
-## Project Structure
+סטטיסטיקה מרכזית:
+- מספר צמתים: 37,700
+- מספר קשתות: 289,003
+- צפיפות: 0.000407
+- דרגה ממוצעת: 15.332
+- מספר רכיבי קשירות: 1
+- Web: 27,961 צמתים (74.17%)
+- Machine Learning: 9,739 צמתים (25.83%)
 
-```text
-github-social-network/
-│
-├── main.py            # Main script to load and fetch data
-├── .gitignore         # Specifies intentionally untracked files to ignore
-└── README.md          # Project documentation (this file)
-```
+## אלגוריתמים ושיטות שיושמו
+הפרויקט כולל כמה שכבות של ניתוח וחיזוי:
+
+1. ניתוח מבני בסיסי של הגרף: גודל, צפיפות, התפלגות דרגות ורכיבי קשירות.
+2. ניתוח הומופיליה ואסורטטיביות לפי תוויות Web/ML.
+3. `Majority Baseline` - חיזוי מחלקת הרוב בלבד.
+4. `Neighbor Majority` - חיזוי לפי רוב תוויות השכנים הידועים מתוך train בלבד.
+5. `Label Propagation` - אלגוריתם גרפי ישיר שבו תוויות train מקובעות ומתפשטות דרך הקשתות לצמתי test.
+6. `Logistic Regression - Graph Features Only` - סיווג על מאפייני גרף בלבד:
+   - degree
+   - מספר שכנים ידועים מ-train
+   - יחסי שכנים Web/ML מתוך train
+   - clustering coefficient
+   - PageRank
+   - core number / k-core
+7. `Louvain Community Detection` - זיהוי קהילות ומדידת modularity.
+8. `Logistic Regression - Graph + Community Features` - מודל משופר עם מאפייני קהילה:
+   - community size
+   - יחסי Web/ML בקהילה לפי train בלבד
+   - פער תוויות קהילתי
+   - `community_id` מקודד כ-one-hot, כדי לא להתייחס למזהה קהילה כערך מספרי סדרי.
+9. כיול סף החלטה על validation בלבד, ללא שימוש בתוויות test.
+
+## מדדי הערכה
+בגלל חוסר איזון בין המחלקות, Accuracy לבדו אינו מספיק. לכן ההערכה כוללת:
+- Accuracy
+- Balanced Accuracy
+- Precision
+- Recall
+- F1
+- Macro F1
+- Weighted F1
+- ROC-AUC
+- Confusion Matrix
+
+הניסויים המרכזיים הורצו על 5 חלוקות Train/Test שונות כדי לבדוק יציבות.
+
+## תוצאות מרכזיות
+ממוצע על 5 חלוקות:
+
+| מודל | Accuracy | Balanced Accuracy | Precision | Recall | F1 | Macro F1 | Weighted F1 | ROC-AUC |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Majority Baseline | 0.7416 | 0.5000 | 0.0000 | 0.0000 | 0.0000 | 0.4258 | 0.6316 | 0.5000 |
+| Neighbor Majority | 0.8188 | 0.6741 | 0.8312 | 0.3747 | 0.5165 | 0.7025 | 0.7924 | 0.7851 |
+| Label Propagation | 0.8285 | 0.6916 | 0.8495 | 0.4085 | 0.5517 | 0.7228 | 0.8055 | 0.8021 |
+| Logistic Regression - Graph Features Only | 0.8295 | 0.7146 | 0.7775 | 0.4767 | 0.5909 | 0.7416 | 0.8145 | 0.8415 |
+| Logistic Regression - Graph + Community Features | 0.8418 | 0.7524 | 0.7601 | 0.5674 | 0.6494 | 0.7736 | 0.8337 | 0.8683 |
+
+התוצאות מראות עלייה מדורגת בביצועים ככל שמוסיפים מידע גרפי עשיר יותר: מודל השכנות משפר את קו הבסיס, Label Propagation מוסיף אלגוריתם גרפי ישיר, מאפייני גרף משפרים עוד, ותכונות קהילה של Louvain נותנות את התוצאה החזקה ביותר.
+
+## כיול סף החלטה
+כדי לשפר את זיהוי מחלקת Machine Learning, בוצע כיול סף החלטה למודל `Logistic Regression - Graph + Community Features`.
+
+הכיול בוצע ללא דליפת מידע:
+- train פוצל ל-`train_inner` ו-validation.
+- הסף נבחר לפי validation בלבד.
+- ההערכה הסופית בוצעה על test בלבד.
+
+בדוגמת החלוקה המרכזית:
+- סף 0.50: Precision `0.7441`, Recall `0.5582`, F1 `0.6379`, Macro F1 `0.7660`.
+- סף 0.40 לפי F1 ב-validation: Precision `0.6895`, Recall `0.6294`, F1 `0.6581`, Macro F1 `0.7729`.
+- סף 0.25 לפי Balanced Accuracy ב-validation: Recall `0.7204`, אך Precision יורד ל-`0.6166`.
+
+## ניתוח שגיאות
+נוסף ניתוח שגיאות עבור המודל המשופר:
+- לפי קבוצות דרגה: צמתים עם דרגה נמוכה בדרך כלל קשים יותר לחיזוי, אך השיפור אחרי כיול הסף מורגש גם בקבוצות אלה.
+- לפי טוהר קהילה: קהילות מעורבות מייצרות שיעור שגיאות גבוה יותר.
+- לפי כיוון הטעות: במודל המכויל עדיין יש יותר טעויות מסוג ML -> Web מאשר Web -> ML.
+
+תוצאות לדוגמה לפי טוהר קהילה:
+- קהילות מעורבות (`purity < 0.70`): שיעור שגיאה `0.4000`.
+- קהילות בינוניות (`0.70 <= purity < 0.85`): שיעור שגיאה `0.2273`.
+- קהילות טהורות (`purity >= 0.85`): שיעור שגיאה `0.0733`.
+
+## ויזואליזציות
+המחברת מייצרת גרפים וטבלאות תחת `outputs/`, כולל:
+- התפלגות תוויות.
+- התפלגות דרגות.
+- התפלגות סוגי קשתות.
+- גרף רשת מדוגם וצבוע לפי Web/ML.
+- התפלגות גדלי קהילות.
+- הרכב תוויות בקהילות הגדולות.
+- מטריצות בלבול.
+- השוואת ביצועים בין מודלים.
+- השוואת Macro F1 ו-Weighted F1.
+- ניתוח שגיאות לפי דרגה, טוהר קהילה וכיוון טעות.
+
+## רפרודוציביליות
+1. התקנת תלויות:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. הרצת המחברת:
+   ```bash
+   jupyter nbconvert --to notebook --execute --inplace notebooks/GitHub_Developer_Field_Prediction_Network_Only.ipynb
+   ```
+
+3. הפלטים נשמרים אוטומטית:
+   - טבלאות: `outputs/tables/`
+   - גרפים: `outputs/figures/`
+
+## מסקנה
+הפרויקט מראה שקשרי המעקב ההדדיים ב-GitHub מכילים סיגנל גרפי משמעותי לגבי תחום ההתמחות של מפתחים. המסקנה המרכזית היא שמידע גרפי וקהילתי משפר את החיזוי מעבר לקו בסיס ולשכנות מקומית בלבד, תוך שמירה על עקרון network-only וללא שימוש בתוכן טקסטואלי או במאפייני פרופיל חיצוניים.

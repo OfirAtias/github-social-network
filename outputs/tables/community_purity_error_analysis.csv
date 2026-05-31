@@ -1,0 +1,4 @@
+purity_group,count,errors,error_rate
+mixed_lt_0.70,35,14,0.4
+medium_0.70_0.85,6951,1580,0.22730542368004603
+pure_0.85_plus,4324,317,0.07331174838112858

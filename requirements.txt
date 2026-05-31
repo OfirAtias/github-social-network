@@ -1,6 +1,9 @@
 pandas
-requests
+numpy
 networkx
 matplotlib
-node2vec
 scikit-learn
+seaborn
+python-louvain
+prettytable
+jupyter

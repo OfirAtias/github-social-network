@@ -1,38 +1,98 @@
-import pandas as pd
-import networkx as nx
+# -*- coding: utf-8 -*-
 from pathlib import Path
-import os
+from typing import Dict, Tuple
 
-def get_data_paths():
-    """Returns the absolute paths to the local dataset files."""
-    # מוצא את המיקום של הקובץ הנוכחי (בתוך src)
-    current_dir = Path(__file__).resolve().parent
-    # הולך צעד אחד אחורה לתיקיית הפרויקט הראשית
-    project_root = current_dir.parent
-    
-    edges_path = project_root / "data" / "musae_git_edges.csv"
-    targets_path = project_root / "data" / "musae_git_target.csv"
-    
-    return str(edges_path), str(targets_path)
+import networkx as nx
+import pandas as pd
 
-def load_github_graph():
-    """Loads edges and node features, and returns a compiled NetworkX Graph object."""
-    edges_path, targets_path = get_data_paths()
-    
-    if not os.path.exists(edges_path) or not os.path.exists(targets_path):
-        raise FileNotFoundError("[-] Error: Dataset files missing inside the 'data' folder.")
-        
-    print("[+] Loading CSV files...")
-    edges_df = pd.read_csv(edges_path)
-    nodes_df = pd.read_csv(targets_path)
-    
-    print("[+] Building network graph using NetworkX...")
-    # Create an undirected graph from the edges dataframe
-    G = nx.from_pandas_edgelist(edges_df, source='id_1', target='id_2')
-    
-    print("[+] Attaching target classifications to nodes...")
-    # Add target classifications (Web=0, ML=1) as node attributes
-    class_mapping = dict(zip(nodes_df['id'], nodes_df['ml_target']))
-    nx.set_node_attributes(G, class_mapping, name='target')
-    
-    return G, nodes_df
+
+EDGE_COLUMNS = ("id_1", "id_2")
+TARGET_ID_COLUMN = "id"
+TARGET_LABEL_COLUMN = "ml_target"
+
+
+def load_edges(path: str | Path) -> pd.DataFrame:
+    """Load and validate the edge list."""
+    path = Path(path)
+    edges_df = pd.read_csv(path)
+
+    missing_columns = [col for col in EDGE_COLUMNS if col not in edges_df.columns]
+    if missing_columns:
+        raise ValueError(f"Edge file is missing required columns: {missing_columns}")
+
+    edges_df = edges_df.loc[:, list(EDGE_COLUMNS)].copy()
+    edges_df["id_1"] = pd.to_numeric(edges_df["id_1"], errors="coerce")
+    edges_df["id_2"] = pd.to_numeric(edges_df["id_2"], errors="coerce")
+    edges_df = edges_df.dropna(subset=["id_1", "id_2"]).astype({"id_1": "int64", "id_2": "int64"})
+
+    return edges_df
+
+
+def load_targets(path: str | Path) -> pd.DataFrame:
+    """Load and validate node labels, returning a standardized labels DataFrame."""
+    path = Path(path)
+    targets_df = pd.read_csv(path)
+
+    required_columns = [TARGET_ID_COLUMN, TARGET_LABEL_COLUMN]
+    missing_columns = [col for col in required_columns if col not in targets_df.columns]
+    if missing_columns:
+        raise ValueError(f"Target file is missing required columns: {missing_columns}")
+
+    keep_columns = [TARGET_ID_COLUMN, TARGET_LABEL_COLUMN]
+    if "name" in targets_df.columns:
+        keep_columns.insert(1, "name")
+
+    labels_df = targets_df.loc[:, keep_columns].copy()
+    labels_df[TARGET_ID_COLUMN] = pd.to_numeric(labels_df[TARGET_ID_COLUMN], errors="coerce")
+    labels_df[TARGET_LABEL_COLUMN] = pd.to_numeric(labels_df[TARGET_LABEL_COLUMN], errors="coerce")
+    labels_df = labels_df.dropna(subset=[TARGET_ID_COLUMN, TARGET_LABEL_COLUMN])
+    labels_df[TARGET_ID_COLUMN] = labels_df[TARGET_ID_COLUMN].astype("int64")
+    labels_df[TARGET_LABEL_COLUMN] = labels_df[TARGET_LABEL_COLUMN].astype("int64")
+    labels_df = labels_df.drop_duplicates(subset=[TARGET_ID_COLUMN], keep="first")
+
+    unique_labels = set(labels_df[TARGET_LABEL_COLUMN].unique())
+    if not unique_labels.issubset({0, 1}):
+        raise ValueError(f"Unexpected labels detected in target file: {sorted(unique_labels)}")
+
+    labels_df = labels_df.rename(columns={TARGET_LABEL_COLUMN: "label"})
+
+    return labels_df
+
+
+def build_graph(edges_df: pd.DataFrame) -> nx.Graph:
+    """Build an undirected NetworkX graph from an edges DataFrame."""
+    missing_columns = [col for col in EDGE_COLUMNS if col not in edges_df.columns]
+    if missing_columns:
+        raise ValueError(f"Edges DataFrame is missing required columns: {missing_columns}")
+
+    graph = nx.from_pandas_edgelist(edges_df, source="id_1", target="id_2", create_using=nx.Graph())
+    return graph
+
+
+def load_dataset(data_dir: str | Path) -> Tuple[nx.Graph, pd.DataFrame, pd.DataFrame, Dict[int, int]]:
+    """
+    Load the dataset from a directory and build all base objects.
+
+    Returns:
+        G: Undirected graph
+        edges_df: Edge list DataFrame
+        labels_df: Labels DataFrame with standardized 'label' column
+        labels_dict: Mapping node_id -> label
+    """
+    data_dir = Path(data_dir)
+    edges_path = data_dir / "musae_git_edges.csv"
+    targets_path = data_dir / "musae_git_target.csv"
+
+    if not edges_path.exists():
+        raise FileNotFoundError(f"Missing edge file: {edges_path}")
+    if not targets_path.exists():
+        raise FileNotFoundError(f"Missing target file: {targets_path}")
+
+    edges_df = load_edges(edges_path)
+    labels_df = load_targets(targets_path)
+    graph = build_graph(edges_df)
+
+    labels_dict = dict(zip(labels_df["id"], labels_df["label"]))
+    nx.set_node_attributes(graph, labels_dict, name="label")
+
+    return graph, edges_df, labels_df, labels_dict
