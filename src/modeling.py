@@ -148,10 +148,30 @@ def extract_graph_neighbor_features(
         G.graph["_clustering_cache"] = nx.clustering(G)
     if "_core_number_cache" not in G.graph:
         G.graph["_core_number_cache"] = nx.core_number(G)
+    
+    # --- קירוב מהיר של Betweenness Centrality ---
+    if "_approx_betweenness_cache" not in G.graph:
+        G.graph["_approx_betweenness_cache"] = nx.betweenness_centrality(G, k=100, seed=42)
+
+    # --- התוספות החדשות: HITS וספירת משולשים ---
+    if "_hits_cache" not in G.graph:
+        try:
+            hubs, authorities = nx.hits(G, max_iter=800)
+        except nx.PowerIterationFailedConvergence:
+            hubs, authorities = {}, {}
+        G.graph["_hubs_cache"] = hubs
+        G.graph["_authorities_cache"] = authorities
+        
+    if "_triangles_cache" not in G.graph:
+        G.graph["_triangles_cache"] = nx.triangles(G)
 
     pagerank_scores = G.graph["_pagerank_cache"]
     clustering_scores = G.graph["_clustering_cache"]
     core_numbers = G.graph["_core_number_cache"]
+    approx_betweenness = G.graph["_approx_betweenness_cache"]
+    hubs_scores = G.graph["_hubs_cache"]
+    authorities_scores = G.graph["_authorities_cache"]
+    triangles_counts = G.graph["_triangles_cache"]
 
     rows = []
     for node in nodes_list:
@@ -190,6 +210,11 @@ def extract_graph_neighbor_features(
                 "clustering_coefficient": float(clustering_scores.get(node, 0.0)),
                 "pagerank": float(pagerank_scores.get(node, 0.0)),
                 "core_number": int(core_numbers.get(node, 0)),
+                "approx_betweenness": float(approx_betweenness.get(node, 0.0)),
+                # --- הכנסת הפיצ'רים החדשים לטבלה הסופית ---
+                "hub_score": float(hubs_scores.get(node, 0.0)),
+                "authority_score": float(authorities_scores.get(node, 0.0)),
+                "triangles": int(triangles_counts.get(node, 0)),
             }
         )
 
@@ -249,7 +274,8 @@ def train_logistic_regression_graph_features(
     model = Pipeline(
         steps=[
             ("scaler", StandardScaler()),
-            ("classifier", LogisticRegression(max_iter=1000, random_state=42)),
+            # --- class_weight="balanced" כדי לטפל בחוסר האיזון ---
+            ("classifier", LogisticRegression(class_weight="balanced", max_iter=1000, random_state=42)),
         ]
     )
     model.fit(x_train_df, np.asarray(list(y_train), dtype=np.int64))
