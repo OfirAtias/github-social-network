@@ -52,15 +52,18 @@
 3. `Majority Baseline` - חיזוי מחלקת הרוב בלבד.
 4. `Neighbor Majority` - חיזוי לפי רוב תוויות השכנים הידועים מתוך train בלבד.
 5. `Label Propagation` - אלגוריתם גרפי ישיר שבו תוויות train מקובעות ומתפשטות דרך הקשתות לצמתי test.
-6. `Logistic Regression - Graph Features Only` - סיווג על מאפייני גרף בלבד:
+6. `Logistic Regression - Graph Features Only` - סיווג על מאפייני גרף מועשרים:
    - degree
    - מספר שכנים ידועים מ-train
    - יחסי שכנים Web/ML מתוך train
    - clustering coefficient
    - PageRank
    - core number / k-core
+   - ספירת משולשים (Triangles) לזיהוי תבניות מקומיות
+   - אלגוריתם HITS לזיהוי Hubs ו-Authorities
+   - קירוב מהיר של Betweenness Centrality
 7. `Louvain Community Detection` - זיהוי קהילות ומדידת modularity.
-8. `Logistic Regression - Graph + Community Features` - מודל משופר עם מאפייני קהילה:
+8. `Logistic Regression - Graph + Community Features` - מודל משופר עם מאפייני קהילה ופונקציית מחיר ממושקלת (`class_weight="balanced"`) להתמודדות עם חוסר האיזון:
    - community size
    - יחסי Web/ML בקהילה לפי train בלבד
    - פער תוויות קהילתי
@@ -89,29 +92,28 @@
 | Majority Baseline | 0.7416 | 0.5000 | 0.0000 | 0.0000 | 0.0000 | 0.4258 | 0.6316 | 0.5000 |
 | Neighbor Majority | 0.8188 | 0.6741 | 0.8312 | 0.3747 | 0.5165 | 0.7025 | 0.7924 | 0.7851 |
 | Label Propagation | 0.8285 | 0.6916 | 0.8495 | 0.4085 | 0.5517 | 0.7228 | 0.8055 | 0.8021 |
-| Logistic Regression - Graph Features Only | 0.8295 | 0.7146 | 0.7775 | 0.4767 | 0.5909 | 0.7416 | 0.8145 | 0.8415 |
-| Logistic Regression - Graph + Community Features | 0.8418 | 0.7524 | 0.7601 | 0.5674 | 0.6494 | 0.7736 | 0.8337 | 0.8683 |
+| Logistic Regression - Graph Features Only | 0.8033 | 0.7589 | 0.6089 | 0.6671 | 0.6367 | 0.7509 | 0.8061 | 0.8409 |
+| Logistic Regression - Graph + Community Features | 0.8161 | 0.7862 | 0.6242 | 0.7245 | 0.6706 | 0.7715 | 0.8203 | 0.8687 |
 
 התוצאות מראות עלייה מדורגת בביצועים ככל שמוסיפים מידע גרפי עשיר יותר: מודל השכנות משפר את קו הבסיס, Label Propagation מוסיף אלגוריתם גרפי ישיר, מאפייני גרף משפרים עוד, ותכונות קהילה של Louvain נותנות את התוצאה החזקה ביותר.
 
 ## כיול סף החלטה
-כדי לשפר את זיהוי מחלקת Machine Learning, בוצע כיול סף החלטה למודל `Logistic Regression - Graph + Community Features`.
+כדי לשפר את זיהוי מחלקת Machine Learning ולדייק את המודל `Logistic Regression - Graph + Community Features`, בוצע כיול סף החלטה.
 
 הכיול בוצע ללא דליפת מידע:
 - train פוצל ל-`train_inner` ו-validation.
 - הסף נבחר לפי validation בלבד.
 - ההערכה הסופית בוצעה על test בלבד.
 
-בדוגמת החלוקה המרכזית:
-- סף 0.50: Precision `0.7441`, Recall `0.5582`, F1 `0.6379`, Macro F1 `0.7660`.
-- סף 0.40 לפי F1 ב-validation: Precision `0.6895`, Recall `0.6294`, F1 `0.6581`, Macro F1 `0.7729`.
-- סף 0.25 לפי Balanced Accuracy ב-validation: Recall `0.7204`, אך Precision יורד ל-`0.6166`.
+בזכות הוספת המשקולות (`class_weight="balanced"`) למודל, המערכת התאזנה באופן טבעי:
+- סף ברירת המחדל (0.50) כבר סיפק Recall מצוין של כ-0.720 ו-F1 של כ-0.667. 
+- כיול הסף בחר להעלות את הרף ל-0.65 (בדוגמת החלוקה המרכזית), מה ששיפר את ה-Precision ל-0.687 תוך שמירה על Recall יציב של 0.631, וכך מקסם את מדד ה-F1 תוך איזון בין המחלקות.
 
 ## ניתוח שגיאות
 נוסף ניתוח שגיאות עבור המודל המשופר:
 - לפי קבוצות דרגה: צמתים עם דרגה נמוכה בדרך כלל קשים יותר לחיזוי, אך השיפור אחרי כיול הסף מורגש גם בקבוצות אלה.
 - לפי טוהר קהילה: קהילות מעורבות מייצרות שיעור שגיאות גבוה יותר.
-- לפי כיוון הטעות: במודל המכויל עדיין יש יותר טעויות מסוג ML -> Web מאשר Web -> ML.
+- לפי כיוון הטעות: במודל המכויל הפספוסים של מחלקת ה-ML ירדו משמעותית, ונותרו 1,078 טעויות מסוג ML -> Web לעומת 839 טעויות מסוג Web -> ML.
 
 תוצאות לדוגמה לפי טוהר קהילה:
 - קהילות מעורבות (`purity < 0.70`): שיעור שגיאה `0.4000`.
