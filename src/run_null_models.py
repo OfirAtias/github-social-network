@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Null models and statistical significance of the structural findings (L5).
+Null models and statistical significance of the structural findings.
 
 Three questions, each answered against an appropriate random model:
 
@@ -10,7 +10,7 @@ Three questions, each answered against an appropriate random model:
    - Null B: degree-preserving edge rewiring (double edge swaps, labels
      fixed) - controls for the degree-label correlation.
 
-2. Is the Louvain modularity (0.4534) significant?
+2. Is the Louvain modularity significant?
    - Compared against Louvain modularity of degree-preserving rewired graphs.
 
 3. Is the GitHub network "special" compared to classical random models?

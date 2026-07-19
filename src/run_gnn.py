@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-GNN experiment (L7): does message passing beat everything else?
+GNN experiment: does message passing beat everything else?
 
 Two GCN variants, both network-only, evaluated under the standard project
 protocol (same seeds, stratified 70/30 splits, same metrics):

@@ -149,11 +149,11 @@ def extract_graph_neighbor_features(
     if "_core_number_cache" not in G.graph:
         G.graph["_core_number_cache"] = nx.core_number(G)
     
-    # --- קירוב מהיר של Betweenness Centrality ---
+    # --- Fast sample-based approximation of Betweenness Centrality ---
     if "_approx_betweenness_cache" not in G.graph:
         G.graph["_approx_betweenness_cache"] = nx.betweenness_centrality(G, k=100, seed=42)
 
-    # --- התוספות החדשות: HITS וספירת משולשים ---
+    # --- Additional structural features: HITS and triangle counts ---
     if "_hits_cache" not in G.graph:
         try:
             hubs, authorities = nx.hits(G, max_iter=800)
@@ -211,7 +211,7 @@ def extract_graph_neighbor_features(
                 "pagerank": float(pagerank_scores.get(node, 0.0)),
                 "core_number": int(core_numbers.get(node, 0)),
                 "approx_betweenness": float(approx_betweenness.get(node, 0.0)),
-                # --- הכנסת הפיצ'רים החדשים לטבלה הסופית ---
+                # --- New features added to the final feature table ---
                 "hub_score": float(hubs_scores.get(node, 0.0)),
                 "authority_score": float(authorities_scores.get(node, 0.0)),
                 "triangles": int(triangles_counts.get(node, 0)),
@@ -274,7 +274,7 @@ def train_logistic_regression_graph_features(
     model = Pipeline(
         steps=[
             ("scaler", StandardScaler()),
-            # --- class_weight="balanced" כדי לטפל בחוסר האיזון ---
+            # --- class_weight="balanced" to handle the class imbalance ---
             ("classifier", LogisticRegression(class_weight="balanced", max_iter=1000, random_state=42)),
         ]
     )

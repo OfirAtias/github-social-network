@@ -3,8 +3,8 @@
 DeepWalk node embeddings (Perozzi et al., KDD 2014).
 
 DeepWalk treats truncated random walks over the graph as "sentences" and
-learns node embeddings with Word2Vec (skip-gram), exactly as in the course
-DeepWalk tutorial, scaled up to the full GitHub network.
+learns node embeddings with Word2Vec (skip-gram), following the idea from
+the course DeepWalk tutorial, scaled up to the full GitHub network.
 
 The embeddings are unsupervised and depend only on graph structure, so they
 respect the project's network-only principle: no labels and no content

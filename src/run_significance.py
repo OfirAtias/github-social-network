@@ -2,9 +2,9 @@
 """
 Paired significance tests over the repeated-split results.
 
-All experiments (the original five models and the three ablation models)
-were run on the exact same stratified splits (random_states 42, 7, 21, 84, 123),
-so per-split scores are paired samples. For each model comparison we report:
+All experiments were run on the exact same stratified splits
+(random_states 42, 7, 21, 84, 123), so per-split scores are paired samples.
+For each model comparison we report:
 
 - mean paired difference and its 95% CI (t-distribution)
 - paired t-test p-value (primary, valid for n=5)
