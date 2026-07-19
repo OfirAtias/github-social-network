@@ -7,3 +7,6 @@ seaborn
 python-louvain
 prettytable
 jupyter
+scipy
+gensim
+powerlaw

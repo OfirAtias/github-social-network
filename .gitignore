@@ -27,8 +27,3 @@ desktop.ini
 *.swp
 *.tmp
 *.temp
-
-# Optional generated outputs
-outputs/figures/*.png
-outputs/tables/*.csv
-outputs/tables/*.xlsx

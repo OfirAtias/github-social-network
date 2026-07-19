@@ -1,0 +1,4 @@
+comparison,nmi,ari
+content_clusters_vs_binary_labels,0.0981308547728639,0.04316025987755553
+louvain_communities_vs_binary_labels,0.10612341161041068,0.0622762234579361
+louvain_communities_vs_content_clusters,0.25720247806242674,0.20849197870292205
