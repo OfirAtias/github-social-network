@@ -83,6 +83,16 @@ COMPARISONS = [
         "GCN - DeepWalk Input",
         "GCN(DW) vs DW+Handcrafted (tie test)",
     ),
+    (
+        "GraphSAGE - DeepWalk Input",
+        "GCN - DeepWalk Input",
+        "GCN vs GraphSAGE (architecture test)",
+    ),
+    (
+        "GCN - Structural Input",
+        "GraphSAGE - Structural Input",
+        "SAGE vs GCN structural (architecture test)",
+    ),
 ]
 
 

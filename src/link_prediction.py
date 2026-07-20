@@ -113,6 +113,24 @@ def score_heuristics(
     return pd.DataFrame(rows)
 
 
+def score_embedding_dot(w2v_model, pairs: Sequence[Pair]) -> List[float]:
+    """
+    Score pairs by the dot product of their DeepWalk embeddings.
+
+    The embeddings must be trained on the TRAIN graph only (after removing
+    the hidden test edges), so the score contains no leaked information.
+    Nodes unseen during training (isolated in the train graph) score 0.
+    """
+    scores = []
+    for u, v in pairs:
+        key_u, key_v = str(int(u)), str(int(v))
+        if key_u in w2v_model.wv and key_v in w2v_model.wv:
+            scores.append(float(np.dot(w2v_model.wv[key_u], w2v_model.wv[key_v])))
+        else:
+            scores.append(0.0)
+    return scores
+
+
 def edge_label_type(u: int, v: int, labels_dict: Dict[int, int]) -> str:
     """Categorize a pair by its endpoint labels: Web-Web, ML-ML or Web-ML."""
     label_u = labels_dict.get(int(u))

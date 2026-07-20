@@ -64,6 +64,54 @@ class GCN(nn.Module):
         return self.linear2(h)
 
 
+def build_mean_adjacency(G: nx.Graph, node_order: List[int]) -> torch.Tensor:
+    """
+    Build the row-normalized adjacency D^-1 A (no self-loops) used by
+    GraphSAGE mean aggregation: (D^-1 A) @ H = mean of neighbor features.
+    """
+    index_of: Dict[int, int] = {int(node): idx for idx, node in enumerate(node_order)}
+    n = len(node_order)
+
+    rows, cols = [], []
+    for u, v in G.edges():
+        iu, iv = index_of[int(u)], index_of[int(v)]
+        rows.extend((iu, iv))
+        cols.extend((iv, iu))
+
+    data = np.ones(len(rows), dtype=np.float32)
+    adjacency = sparse.coo_matrix((data, (rows, cols)), shape=(n, n)).tocsr()
+    degree = np.asarray(adjacency.sum(axis=1)).ravel()
+    inv_degree = 1.0 / np.maximum(degree, 1.0)
+    normalized = adjacency.multiply(inv_degree[:, None]).tocoo()
+
+    indices = torch.tensor(np.vstack([normalized.row, normalized.col]), dtype=torch.long)
+    values = torch.tensor(normalized.data, dtype=torch.float32)
+    return torch.sparse_coo_tensor(indices, values, size=(n, n)).coalesce()
+
+
+class GraphSAGE(nn.Module):
+    """
+    Two-layer GraphSAGE with mean aggregation (Hamilton et al., 2017).
+
+    Each layer concatenates the node's own representation with the mean of
+    its neighbors' representations, then applies a linear transformation:
+        h_v' = ReLU( W @ [h_v ; mean_{u in N(v)} h_u] )
+    """
+
+    def __init__(self, in_features: int, hidden: int = 64, n_classes: int = 2, dropout: float = 0.5):
+        super().__init__()
+        self.linear1 = nn.Linear(in_features * 2, hidden)
+        self.linear2 = nn.Linear(hidden * 2, n_classes)
+        self.dropout = dropout
+
+    def forward(self, a_mean: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+        neighbor_mean = torch.sparse.mm(a_mean, x)
+        h = F.relu(self.linear1(torch.cat([x, neighbor_mean], dim=1)))
+        h = F.dropout(h, p=self.dropout, training=self.training)
+        neighbor_mean = torch.sparse.mm(a_mean, h)
+        return self.linear2(torch.cat([h, neighbor_mean], dim=1))
+
+
 def train_gcn(
     a_hat: torch.Tensor,
     features: np.ndarray,
@@ -76,11 +124,15 @@ def train_gcn(
     lr: float = 0.01,
     weight_decay: float = 5e-4,
     seed: int = 42,
+    architecture: str = "gcn",
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Full-batch transductive training with class weights and best-epoch
     selection on the validation macro loss. Returns (y_pred, y_score) for
     the test indices, where y_score is the ML-class probability.
+
+    architecture: "gcn" (pass the symmetric-normalized adjacency) or
+    "graphsage" (pass the row-normalized mean adjacency).
     """
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -95,7 +147,10 @@ def train_gcn(
         class_counts.sum() / (2.0 * np.maximum(class_counts, 1.0)), dtype=torch.float32
     )
 
-    model = GCN(in_features=x.shape[1], hidden=hidden)
+    if architecture == "graphsage":
+        model = GraphSAGE(in_features=x.shape[1], hidden=hidden)
+    else:
+        model = GCN(in_features=x.shape[1], hidden=hidden)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     best_val_loss = float("inf")

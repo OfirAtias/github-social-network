@@ -40,12 +40,14 @@ PROJECT_DIR = SRC_DIR.parent
 sys.path.insert(0, str(SRC_DIR))
 
 from data_loader import load_dataset
-from gnn import build_normalized_adjacency, train_gcn
+from gnn import build_mean_adjacency, build_normalized_adjacency, train_gcn
 from modeling import evaluate_predictions, prepare_train_test_split
 
 
 MODEL_GCN_STRUCT = "GCN - Structural Input"
 MODEL_GCN_DEEPWALK = "GCN - DeepWalk Input"
+MODEL_SAGE_STRUCT = "GraphSAGE - Structural Input"
+MODEL_SAGE_DEEPWALK = "GraphSAGE - DeepWalk Input"
 
 
 def structural_input_features(G: nx.Graph, node_order: list[int]) -> np.ndarray:
@@ -86,8 +88,9 @@ def main(random_states: Sequence[int] = (42, 7, 21, 84, 123)) -> None:
         labels_df.set_index("id").loc[node_order, "label"].to_numpy(dtype=np.int64)
     )
 
-    print("Building normalized adjacency ...")
+    print("Building normalized adjacencies ...")
     a_hat = build_normalized_adjacency(G, node_order)
+    a_mean = build_mean_adjacency(G, node_order)
 
     # --- Input variant 1: structural features ---
     x_struct = StandardScaler().fit_transform(structural_input_features(G, node_order))
@@ -121,19 +124,22 @@ def main(random_states: Sequence[int] = (42, 7, 21, 84, 123)) -> None:
         test_idx = np.array([index_of[int(n)] for n in test_nodes])
         y_test = labels_arr[test_idx]
 
-        for model_name, features in (
-            (MODEL_GCN_STRUCT, x_struct),
-            (MODEL_GCN_DEEPWALK, x_deepwalk),
+        for model_name, features, adjacency, architecture in (
+            (MODEL_GCN_STRUCT, x_struct, a_hat, "gcn"),
+            (MODEL_GCN_DEEPWALK, x_deepwalk, a_hat, "gcn"),
+            (MODEL_SAGE_STRUCT, x_struct, a_mean, "graphsage"),
+            (MODEL_SAGE_DEEPWALK, x_deepwalk, a_mean, "graphsage"),
         ):
             t0 = time.time()
             y_pred, y_score = train_gcn(
-                a_hat=a_hat,
+                a_hat=adjacency,
                 features=features,
                 labels=labels_arr,
                 train_idx=train_idx,
                 val_idx=val_idx,
                 test_idx=test_idx,
                 seed=int(random_state),
+                architecture=architecture,
             )
             metrics = evaluate_predictions(y_test, y_pred, y_score)
             results_rows.append(
@@ -176,17 +182,19 @@ def main(random_states: Sequence[int] = (42, 7, 21, 84, 123)) -> None:
          handcrafted_df[handcrafted_df["model"] == "Logistic Regression - Graph + Community Features"]),
         ("DeepWalk\n+ LogReg",
          deepwalk_df[deepwalk_df["model"] == "Logistic Regression - DeepWalk Embeddings Only"]),
-        ("GCN\n(structural input)", results_df[results_df["model"] == MODEL_GCN_STRUCT]),
-        ("GCN\n(DeepWalk input)", results_df[results_df["model"] == MODEL_GCN_DEEPWALK]),
+        ("GCN\n(structural)", results_df[results_df["model"] == MODEL_GCN_STRUCT]),
+        ("SAGE\n(structural)", results_df[results_df["model"] == MODEL_SAGE_STRUCT]),
+        ("GCN\n(DeepWalk)", results_df[results_df["model"] == MODEL_GCN_DEEPWALK]),
+        ("SAGE\n(DeepWalk)", results_df[results_df["model"] == MODEL_SAGE_DEEPWALK]),
     ]
 
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     for ax, metric, title in zip(axes, ["macro_f1", "roc_auc"], ["Macro F1", "ROC-AUC"]):
         names = [name for name, _ in ladder]
         means = [frame[metric].mean() for _, frame in ladder]
         stds = [frame[metric].std() for _, frame in ladder]
         bars = ax.bar(names, means, yerr=stds, capsize=5,
-                      color=["#4f7bd1", "#8a5fc2", "#5aa469", "#2c7a2c"])
+                      color=["#4f7bd1", "#8a5fc2", "#5aa469", "#8fbc8f", "#2c7a2c", "#1e5e1e"])
         for bar, mean in zip(bars, means):
             ax.text(bar.get_x() + bar.get_width() / 2, mean + 0.008, f"{mean:.3f}",
                     ha="center", va="bottom", fontsize=10)

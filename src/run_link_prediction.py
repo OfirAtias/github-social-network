@@ -37,10 +37,12 @@ sys.path.insert(0, str(SRC_DIR))
 
 from community_analysis import detect_louvain_communities
 from data_loader import load_dataset
+from embeddings import generate_random_walks, train_deepwalk
 from link_prediction import (
     auc_and_ap,
     edge_label_type,
     sample_link_prediction_split,
+    score_embedding_dot,
     score_heuristics,
 )
 
@@ -51,6 +53,7 @@ HEURISTICS = [
     ("adamic_adar", "Adamic-Adar"),
     ("preferential_attachment", "Pref. Attachment"),
     ("same_community", "Same Community"),
+    ("deepwalk_dot", "DeepWalk (dot)"),
 ]
 
 EDGE_TYPES = ["Web-Web", "ML-ML", "Web-ML"]
@@ -84,8 +87,16 @@ def main(random_states: Sequence[int] = (42, 7, 21, 84, 123)) -> None:
         # Louvain on the train graph only - hidden edges must not affect it.
         partition, _ = detect_louvain_communities(G_train, random_state=42)
 
+        # DeepWalk retrained per split on the train graph only, so the
+        # embedding-based score never sees the hidden edges.
+        print("  training DeepWalk on the train graph ...")
+        walks = generate_random_walks(G_train, num_walks=10, walk_length=80, seed=int(seed))
+        w2v_model = train_deepwalk(walks, dimensions=128, window=10, epochs=5, seed=int(seed))
+
         scores_pos = score_heuristics(G_train, positive_pairs, partition)
         scores_neg = score_heuristics(G_train, negative_pairs, partition)
+        scores_pos["deepwalk_dot"] = score_embedding_dot(w2v_model, positive_pairs)
+        scores_neg["deepwalk_dot"] = score_embedding_dot(w2v_model, negative_pairs)
         scores_pos["is_edge"] = 1
         scores_neg["is_edge"] = 0
         scores_df = pd.concat([scores_pos, scores_neg], ignore_index=True)
