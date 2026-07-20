@@ -23,7 +23,7 @@ def plot_label_distribution(label_distribution_df: pd.DataFrame, output_dir: str
     output_path = _prepare_output_dir(output_dir) / "label_distribution.png"
 
     fig, ax = plt.subplots(figsize=(7, 5))
-    sns.barplot(data=label_distribution_df, x="class_name", y="count", palette="Set2", ax=ax)
+    sns.barplot(data=label_distribution_df, x="class_name", y="count", hue="class_name", legend=False, palette="Set2", ax=ax)
     ax.set_title("GitHub Developers by Label", fontsize=13, weight="bold")
     ax.set_xlabel("Label")
     ax.set_ylabel("Count")
@@ -76,7 +76,7 @@ def plot_edge_type_distribution(edge_type_counts: Dict[str, int], output_dir: st
     )
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    sns.barplot(data=plot_df, x="edge_type", y="count", palette="Blues", ax=ax)
+    sns.barplot(data=plot_df, x="edge_type", y="count", hue="edge_type", legend=False, palette="Blues", ax=ax)
     ax.set_title("Edge Type Distribution", fontsize=13, weight="bold")
     ax.set_xlabel("Edge Type")
     ax.set_ylabel("Count")
@@ -200,7 +200,7 @@ def plot_error_type_counts(error_types_df: pd.DataFrame, output_dir: str | Path)
     output_path = _prepare_output_dir(output_dir) / "prediction_error_types.png"
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    sns.barplot(data=error_types_df, x="error_type", y="count", palette="Set2", ax=ax)
+    sns.barplot(data=error_types_df, x="error_type", y="count", hue="error_type", legend=False, palette="Set2", ax=ax)
     ax.set_title("Prediction Outcomes by Type", fontsize=13, weight="bold")
     ax.set_xlabel("Prediction Type")
     ax.set_ylabel("Count")

@@ -225,12 +225,17 @@ def main() -> None:
 
     # Power-law fit
     print("Fitting power law to the degree distribution ...")
+    import warnings
+
     import powerlaw
 
     github_degrees = np.array([d for _, d in G.degree()])
-    fit = powerlaw.Fit(github_degrees, discrete=True, verbose=False)
-    lr_lognormal, p_lognormal = fit.distribution_compare("power_law", "lognormal")
-    lr_exponential, p_exponential = fit.distribution_compare("power_law", "exponential")
+    with warnings.catch_warnings():
+        # powerlaw emits a benign internal warning while exploring lognormal fits
+        warnings.filterwarnings("ignore", message="No valid fits found")
+        fit = powerlaw.Fit(github_degrees, discrete=True, verbose=False)
+        lr_lognormal, p_lognormal = fit.distribution_compare("power_law", "lognormal")
+        lr_exponential, p_exponential = fit.distribution_compare("power_law", "exponential")
 
     powerlaw_df = pd.DataFrame(
         [
