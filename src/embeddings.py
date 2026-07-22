@@ -60,9 +60,16 @@ def train_deepwalk(
     window: int = 10,
     epochs: int = 5,
     seed: int = 42,
-    workers: int = 4,
+    workers: int = 1,
 ) -> Word2Vec:
-    """Train skip-gram Word2Vec over the random walks."""
+    """
+    Train skip-gram Word2Vec over the random walks.
+
+    workers=1 keeps training deterministic for a fixed seed (multi-worker
+    training is faster but yields slightly different vectors on every run,
+    which would make all downstream numbers non-reproducible). For full
+    determinism run with the environment variable PYTHONHASHSEED=0.
+    """
     model = Word2Vec(
         sentences=walks,
         vector_size=dimensions,

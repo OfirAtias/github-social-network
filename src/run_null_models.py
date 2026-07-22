@@ -49,7 +49,8 @@ from data_loader import load_dataset
 
 
 N_LABEL_SHUFFLES = 1000
-N_REWIRES = 10
+N_REWIRES = 20
+N_SWAPS_PER_EDGE = 2
 N_BFS_SAMPLES = 300
 SEED = 42
 
@@ -123,7 +124,12 @@ def main() -> None:
     for i in range(N_REWIRES):
         t0 = time.time()
         G_rewired = G.copy()
-        nx.double_edge_swap(G_rewired, nswap=n_edges, max_tries=n_edges * 20, seed=SEED + i)
+        nx.double_edge_swap(
+            G_rewired,
+            nswap=n_edges * N_SWAPS_PER_EDGE,
+            max_tries=n_edges * N_SWAPS_PER_EDGE * 20,
+            seed=SEED + i,
+        )
 
         rewired_edges = np.array(G_rewired.edges(), dtype=np.int64)
         rewire_fractions.append(

@@ -9,10 +9,10 @@ Protocol (per split):
    the TRAIN graph only (the hidden edges are removed before any computation,
    so no information about them can leak into the scores).
 
-The label-stratified analysis (same-label vs cross-label edges) connects
-link prediction back to the homophily finding: if same-label edges are more
-predictable, the same force that enables node classification also shapes
-edge formation.
+Note: since the graph is a static snapshot, this experiment measures the
+reconstruction of randomly hidden edges, not the prediction of future
+edges. The label-stratified analysis (same-label vs cross-label edges)
+connects the task back to the homophily finding.
 """
 import math
 import random

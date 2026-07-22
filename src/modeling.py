@@ -159,6 +159,7 @@ def extract_graph_neighbor_features(
             hubs, authorities = nx.hits(G, max_iter=800)
         except nx.PowerIterationFailedConvergence:
             hubs, authorities = {}, {}
+        G.graph["_hits_cache"] = True
         G.graph["_hubs_cache"] = hubs
         G.graph["_authorities_cache"] = authorities
         
