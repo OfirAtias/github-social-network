@@ -90,21 +90,9 @@ pip install -r requirements.txt
 python -m nbconvert --to notebook --execute --inplace notebooks/GitHub_Developer_Field_Prediction_Network_Only.ipynb
 ```
 
-המחברת מריצה את הכל מקצה לקצה (מספר שעות, תלוי בחומרה). לחלופין, כל ניסוי ניתן להרצה עצמאית: `python src/run_ablation.py` וכו'. הערה: `run_gnn.py` דורש ש-`run_deepwalk.py` ירוץ קודם (משתמש ב-embeddings השמורים).
+המחברת מריצה את הכל מקצה לקצה (מספר שעות). לחלופין, כל ניסוי ניתן להרצה עצמאית: `python src/run_ablation.py` וכו'. הערה: `run_gnn.py` דורש ש-`run_deepwalk.py` ירוץ קודם (משתמש ב-embeddings השמורים).
 
 **שחזוריות:** כל התהליכים האקראיים קבועי seed, ואימון ה-DeepWalk רץ על thread יחיד כדי שהתוצאות יהיו זהות בין הרצות. לשחזור מלא מומלץ להריץ עם משתנה הסביבה `PYTHONHASHSEED=0`.
-
-## מיפוי לחומר הקורס
-
-| נושא בקורס | איפה בפרויקט (פרקי המחברת) |
-|---|---|
-| יסודות ואפיון רשתות | פרקים 4–6, 19 |
-| מדדי מרכזיות | פרקים 7–8 (פיצ'רים), 17 (קלט GCN) |
-| ניתוח קהילות | פרקים 9–10, 15 |
-| מודלי רשת אקראיים | פרק 19 (ER, BA, configuration model, חוק חזקה) |
-| חיזוי קשרים | פרק 18 |
-| DeepWalk (תרגול) | פרק 16 |
-| Graph Neural Networks | פרק 17 |
 
 ## מקורות
 
