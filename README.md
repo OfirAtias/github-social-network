@@ -108,4 +108,14 @@ python -m nbconvert --to notebook --execute --inplace notebooks/GitHub_Developer
 
 ## מקורות
 
-Rozemberczki et al. ‏(2019, MUSAE) · ‏McPherson et al. ‏(2001) · ‏Blondel et al. ‏(2008) · ‏Perozzi et al. ‏(2014, DeepWalk) · ‏Kipf & Welling ‏(2017, GCN) · ‏Liben-Nowell & Kleinberg ‏(2003) · ‏Clauset et al. ‏(2009) · ‏Broido & Clauset ‏(2019). הרשימה המלאה בדוח המסכם.
+1. Rozemberczki, B., Allen, C., & Sarkar, R. (2019). Multi-scale Attributed Node Embedding (MUSAE).
+2. McPherson, M., Smith-Lovin, L., & Cook, J. M. (2001). Birds of a Feather: Homophily in Social Networks. Annual Review of Sociology.
+3. Blondel, V. D., et al. (2008). Fast unfolding of communities in large networks.
+4. Perozzi, B., Al-Rfou, R., & Skiena, S. (2014). DeepWalk: Online Learning of Social Representations. KDD.
+5. Kipf, T. N., & Welling, M. (2017). Semi-Supervised Classification with Graph Convolutional Networks. ICLR.
+6. Liben-Nowell, D., & Kleinberg, J. (2003). The Link Prediction Problem for Social Networks. CIKM.
+7. Clauset, A., Shalizi, C. R., & Newman, M. E. J. (2009). Power-law distributions in empirical data. SIAM Review.
+8. Broido, A. D., & Clauset, A. (2019). Scale-free networks are rare. Nature Communications.
+9. Page, L., et al. (1999). The PageRank Citation Ranking.
+10. Hamilton, W., Ying, R., & Leskovec, J. (2017). Inductive Representation Learning on Large Graphs. NeurIPS.
+11. מצגות ותרגולי הקורס.
