@@ -155,6 +155,10 @@ def extract_graph_neighbor_features(
 
     # --- Additional structural features: HITS and triangle counts ---
     if "_hits_cache" not in G.graph:
+        # Known limitation: on an undirected graph HITS hub and authority
+        # scores coincide, so one of the two features is redundant. Both are
+        # kept for completeness; the redundancy is harmless for the
+        # logistic-regression classifier.
         try:
             hubs, authorities = nx.hits(G, max_iter=800)
         except nx.PowerIterationFailedConvergence:

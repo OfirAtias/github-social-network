@@ -115,7 +115,9 @@ def main() -> None:
     shuffle_mean = float(shuffle_fractions.mean())
     shuffle_std = float(shuffle_fractions.std(ddof=1))
     z_shuffle = (observed_fraction - shuffle_mean) / shuffle_std
-    p_shuffle = float(np.mean(shuffle_fractions >= observed_fraction))  # empirical
+    # Empirical p with the (b+1)/(B+1) correction: an empirical p-value can
+    # never be exactly 0, only bounded by the number of permutations.
+    p_shuffle = float((np.sum(shuffle_fractions >= observed_fraction) + 1) / (N_LABEL_SHUFFLES + 1))
 
     # Null B: degree-preserving rewiring (labels fixed)
     print(f"Null B: {N_REWIRES} degree-preserving rewired graphs ...")
@@ -166,7 +168,7 @@ def main() -> None:
                 "null_mean": rewire_mean,
                 "null_std": rewire_std,
                 "z_score": z_rewire,
-                "empirical_p": float(np.mean(rewire_fractions_arr >= observed_fraction)),
+                "empirical_p": float((np.sum(rewire_fractions_arr >= observed_fraction) + 1) / (N_REWIRES + 1)),
             },
         ]
     )
@@ -199,6 +201,9 @@ def main() -> None:
     # 3) GitHub vs classical random models
     # ------------------------------------------------------------------
     print("Building ER and BA comparison graphs ...")
+    # ER matches the edge count exactly; BA with integer m=8 yields ~301.5K
+    # edges (about 4% more than the real network), so it is comparable in
+    # size but not identical.
     ba_m = max(1, round(n_edges / n_nodes))
     G_er = nx.gnm_random_graph(n_nodes, n_edges, seed=SEED)
     G_ba = nx.barabasi_albert_graph(n_nodes, ba_m, seed=SEED)
