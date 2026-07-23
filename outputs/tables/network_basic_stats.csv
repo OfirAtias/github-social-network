@@ -1,0 +1,2 @@
+num_nodes,num_edges,density,average_degree,num_connected_components,largest_component_size,largest_component_ratio,labeled_nodes_total,labeled_nodes_in_graph,labeled_node_ratio,homophily_rate,same_label_edges,different_label_edges,labeled_edges
+37700,289003,0.0004066878203117068,15.331724137931035,1,37700,1.0,37700,37700,1.0,0.8453441659775158,244307,44696,289003
