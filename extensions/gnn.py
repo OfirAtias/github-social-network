@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 """
+Extension only: this module is retained for reference and is not part of the
+course-only analysis, reported results, or reproducibility pipeline.
+
 Graph Convolutional Network (Kipf & Welling, ICLR 2017) in plain PyTorch.
 
 Each GCN layer propagates node features over the symmetrically-normalized

@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 """
+Extension only: this experiment is excluded from the course-only pipeline and
+from every result reported in the notebook, README, and final report.
+
 GNN experiment: does message passing beat everything else?
 
 Two GCN variants, both network-only, evaluated under the standard project
@@ -35,9 +38,10 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-SRC_DIR = Path(__file__).resolve().parent
-PROJECT_DIR = SRC_DIR.parent
-sys.path.insert(0, str(SRC_DIR))
+EXTENSIONS_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = EXTENSIONS_DIR.parent
+sys.path.insert(0, str(PROJECT_DIR / "src"))
+sys.path.insert(0, str(EXTENSIONS_DIR))
 
 from data_loader import load_dataset
 from gnn import build_mean_adjacency, build_normalized_adjacency, train_gcn

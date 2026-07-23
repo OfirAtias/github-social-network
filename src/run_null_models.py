@@ -13,9 +13,9 @@ Three questions, each answered against an appropriate random model:
 2. Is the Louvain modularity significant?
    - Compared against Louvain modularity of degree-preserving rewired graphs.
 
-3. Is the GitHub network "special" compared to classical random models?
-   - Same-size Erdos-Renyi and Barabasi-Albert graphs: clustering,
-     transitivity, average shortest path (sampled), degree extremes.
+3. Which properties are reproduced by course-covered network models?
+   - Erdos-Renyi, Barabasi-Albert, Watts-Strogatz small-world and a
+     degree-preserving configuration-style null graph.
    - Power-law fit of the degree distribution (powerlaw package), including
      likelihood-ratio comparison against lognormal and exponential.
 
@@ -53,6 +53,7 @@ N_REWIRES = 20
 N_SWAPS_PER_EDGE = 2
 N_BFS_SAMPLES = 300
 SEED = 42
+SMALL_WORLD_REWIRING_PROBABILITY = 0.10
 
 
 def same_label_fraction(edge_u: np.ndarray, edge_v: np.ndarray, labels: np.ndarray) -> float:
@@ -71,6 +72,16 @@ def sampled_average_shortest_path(G: nx.Graph, n_samples: int, rng: np.random.Ge
         total += sum(lengths.values())
         count += len(lengths) - 1
     return total / count if count else float("nan")
+
+
+def empirical_upper_tail_p(
+    null_values: np.ndarray, observed_value: float
+) -> float:
+    """Finite-simulation upper-tail p-value with the (b+1)/(B+1) correction."""
+    values = np.asarray(null_values, dtype=float)
+    if values.size == 0:
+        raise ValueError("At least one null simulation is required.")
+    return float((np.sum(values >= observed_value) + 1) / (values.size + 1))
 
 
 def main() -> None:
@@ -117,12 +128,13 @@ def main() -> None:
     z_shuffle = (observed_fraction - shuffle_mean) / shuffle_std
     # Empirical p with the (b+1)/(B+1) correction: an empirical p-value can
     # never be exactly 0, only bounded by the number of permutations.
-    p_shuffle = float((np.sum(shuffle_fractions >= observed_fraction) + 1) / (N_LABEL_SHUFFLES + 1))
+    p_shuffle = empirical_upper_tail_p(shuffle_fractions, observed_fraction)
 
     # Null B: degree-preserving rewiring (labels fixed)
     print(f"Null B: {N_REWIRES} degree-preserving rewired graphs ...")
     rewire_fractions = []
     rewire_modularities = []
+    G_configuration = None
     for i in range(N_REWIRES):
         t0 = time.time()
         G_rewired = G.copy()
@@ -132,6 +144,10 @@ def main() -> None:
             max_tries=n_edges * N_SWAPS_PER_EDGE * 20,
             seed=SEED + i,
         )
+        if i == 0:
+            # Simple-graph configuration-style null: exact degrees are
+            # retained while the endpoint pairing is randomized.
+            G_configuration = G_rewired.copy()
 
         rewired_edges = np.array(G_rewired.edges(), dtype=np.int64)
         rewire_fractions.append(
@@ -168,7 +184,9 @@ def main() -> None:
                 "null_mean": rewire_mean,
                 "null_std": rewire_std,
                 "z_score": z_rewire,
-                "empirical_p": float((np.sum(rewire_fractions_arr >= observed_fraction) + 1) / (N_REWIRES + 1)),
+                "empirical_p": empirical_upper_tail_p(
+                    rewire_fractions_arr, observed_fraction
+                ),
             },
         ]
     )
@@ -191,6 +209,9 @@ def main() -> None:
                 "rewired_null_std": mod_std,
                 "z_score": z_modularity,
                 "n_rewires": N_REWIRES,
+                "empirical_p": empirical_upper_tail_p(
+                    rewire_mod_arr, observed_modularity
+                ),
             }
         ]
     )
@@ -200,16 +221,35 @@ def main() -> None:
     # ------------------------------------------------------------------
     # 3) GitHub vs classical random models
     # ------------------------------------------------------------------
-    print("Building ER and BA comparison graphs ...")
+    print("Building course-covered comparison graphs ...")
     # ER matches the edge count exactly; BA with integer m=8 yields ~301.5K
     # edges (about 4% more than the real network), so it is comparable in
     # size but not identical.
     ba_m = max(1, round(n_edges / n_nodes))
+    small_world_k = max(2, 2 * round((2 * n_edges / n_nodes) / 2))
     G_er = nx.gnm_random_graph(n_nodes, n_edges, seed=SEED)
     G_ba = nx.barabasi_albert_graph(n_nodes, ba_m, seed=SEED)
+    G_small_world = nx.watts_strogatz_graph(
+        n_nodes,
+        small_world_k,
+        SMALL_WORLD_REWIRING_PROBABILITY,
+        seed=SEED,
+    )
+    if G_configuration is None:
+        raise AssertionError("Configuration-style null graph was not created.")
 
     rows = []
-    for name, graph in (("GitHub", G), ("Erdos-Renyi", G_er), (f"Barabasi-Albert (m={ba_m})", G_ba)):
+    comparison_graphs = (
+        ("GitHub observed", G),
+        ("Erdos-Renyi", G_er),
+        (f"Barabasi-Albert (m={ba_m})", G_ba),
+        (
+            f"Watts-Strogatz (k={small_world_k}, p={SMALL_WORLD_REWIRING_PROBABILITY})",
+            G_small_world,
+        ),
+        ("Degree-preserving configuration null", G_configuration),
+    )
+    for name, graph in comparison_graphs:
         t0 = time.time()
         degrees = np.array([d for _, d in graph.degree()])
         largest_cc = graph.subgraph(max(nx.connected_components(graph), key=len))
@@ -218,6 +258,9 @@ def main() -> None:
                 "network": name,
                 "nodes": graph.number_of_nodes(),
                 "edges": graph.number_of_edges(),
+                "edge_count_difference_pct": float(
+                    100 * (graph.number_of_edges() - n_edges) / n_edges
+                ),
                 "max_degree": int(degrees.max()),
                 "mean_degree": float(degrees.mean()),
                 "transitivity": float(nx.transitivity(graph)),
@@ -284,17 +327,19 @@ def main() -> None:
     axes[1].set_xlabel("Same-label edge fraction")
     axes[1].legend()
 
-    fig.suptitle("Is the Homophily Real? Observed vs Null Models", fontsize=13)
+    fig.suptitle("Observed homophily compared with two null models", fontsize=13)
     fig.tight_layout()
-    fig.savefig(figures_dir / "homophily_null_distribution.png", dpi=150, bbox_inches="tight")
+    fig.savefig(figures_dir / "homophily_null_distribution.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
 
     # Degree distribution log-log CCDF
     fig, ax = plt.subplots(figsize=(8, 6))
     for name, graph, color in (
-        ("GitHub", G, "#4f7bd1"),
+        ("GitHub observed", G, "#315C8D"),
         ("Erdos-Renyi", G_er, "#8a8a8a"),
-        (f"Barabasi-Albert (m={ba_m})", G_ba, "#e07b39"),
+        (f"Barabasi-Albert (m={ba_m})", G_ba, "#D57837"),
+        ("Watts-Strogatz", G_small_world, "#4F8A5B"),
+        ("Degree-preserving null", G_configuration, "#7B5BA7"),
     ):
         degs = np.sort(np.array([d for _, d in graph.degree()]))
         ccdf = 1.0 - np.arange(1, len(degs) + 1) / len(degs)
@@ -310,7 +355,7 @@ def main() -> None:
     ax.legend()
     ax.grid(alpha=0.3, which="both")
     fig.tight_layout()
-    fig.savefig(figures_dir / "degree_distribution_loglog.png", dpi=150, bbox_inches="tight")
+    fig.savefig(figures_dir / "degree_distribution_loglog.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
 
     print("Saved tables and figures.")

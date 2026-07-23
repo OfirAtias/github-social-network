@@ -27,3 +27,8 @@ desktop.ini
 *.swp
 *.tmp
 *.temp
+
+# Reproducibility scratch and document-render QA
+tmp/
+report/.render/
+*.log

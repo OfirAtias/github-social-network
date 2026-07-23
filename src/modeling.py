@@ -153,19 +153,15 @@ def extract_graph_neighbor_features(
     if "_approx_betweenness_cache" not in G.graph:
         G.graph["_approx_betweenness_cache"] = nx.betweenness_centrality(G, k=100, seed=42)
 
-    # --- Additional structural features: HITS and triangle counts ---
+    # HITS hub and authority scores coincide on an undirected graph.  Keep one
+    # score only so the feature matrix does not contain a known duplicate.
     if "_hits_cache" not in G.graph:
-        # Known limitation: on an undirected graph HITS hub and authority
-        # scores coincide, so one of the two features is redundant. Both are
-        # kept for completeness; the redundancy is harmless for the
-        # logistic-regression classifier.
         try:
-            hubs, authorities = nx.hits(G, max_iter=800)
+            hubs, _ = nx.hits(G, max_iter=800)
         except nx.PowerIterationFailedConvergence:
-            hubs, authorities = {}, {}
+            hubs = {}
         G.graph["_hits_cache"] = True
         G.graph["_hubs_cache"] = hubs
-        G.graph["_authorities_cache"] = authorities
         
     if "_triangles_cache" not in G.graph:
         G.graph["_triangles_cache"] = nx.triangles(G)
@@ -175,7 +171,6 @@ def extract_graph_neighbor_features(
     core_numbers = G.graph["_core_number_cache"]
     approx_betweenness = G.graph["_approx_betweenness_cache"]
     hubs_scores = G.graph["_hubs_cache"]
-    authorities_scores = G.graph["_authorities_cache"]
     triangles_counts = G.graph["_triangles_cache"]
 
     rows = []
@@ -216,9 +211,7 @@ def extract_graph_neighbor_features(
                 "pagerank": float(pagerank_scores.get(node, 0.0)),
                 "core_number": int(core_numbers.get(node, 0)),
                 "approx_betweenness": float(approx_betweenness.get(node, 0.0)),
-                # --- New features added to the final feature table ---
-                "hub_score": float(hubs_scores.get(node, 0.0)),
-                "authority_score": float(authorities_scores.get(node, 0.0)),
+                "hits_hub_score": float(hubs_scores.get(node, 0.0)),
                 "triangles": int(triangles_counts.get(node, 0)),
             }
         )
@@ -303,68 +296,6 @@ def predict_logistic_regression_graph_features(
 
     x_df = _prepare_feature_matrix(X, fit_columns=feature_columns)
     return model.predict_proba(x_df)[:, 1].astype(np.float64)
-
-
-def label_propagation_classifier(
-    G: nx.Graph,
-    labels_dict: Dict[int, int],
-    train_nodes: Iterable[int],
-    test_nodes: Iterable[int],
-    default_label: int,
-    max_iter: int = 100,
-    tol: float = 1e-6,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Semi-supervised Label Propagation over the graph.
-
-    Train-node labels are clamped during propagation. Test labels are never read;
-    test nodes receive scores only from graph structure and train-labeled nodes.
-    """
-    train_set = {int(node) for node in train_nodes}
-    test_list = [int(node) for node in test_nodes]
-    train_label_dict = {node: int(labels_dict[node]) for node in train_set if node in labels_dict}
-    train_ml_prior = float(np.mean(list(train_label_dict.values()))) if train_label_dict else 0.5
-
-    if "_label_prop_nodelist_cache" not in G.graph:
-        nodelist = list(G.nodes())
-        G.graph["_label_prop_nodelist_cache"] = nodelist
-        G.graph["_label_prop_index_cache"] = {int(node): idx for idx, node in enumerate(nodelist)}
-
-        adjacency = nx.to_scipy_sparse_array(G, nodelist=nodelist, dtype=float, format="csr")
-        row_sums = np.asarray(adjacency.sum(axis=1)).ravel()
-        nonzero = row_sums > 0
-        row_sums[~nonzero] = 1.0
-        G.graph["_label_prop_transition_cache"] = adjacency.multiply(1.0 / row_sums[:, None]).tocsr()
-
-    nodelist = G.graph["_label_prop_nodelist_cache"]
-    node_to_idx = G.graph["_label_prop_index_cache"]
-    transition = G.graph["_label_prop_transition_cache"]
-
-    scores = np.full(len(nodelist), train_ml_prior, dtype=np.float64)
-    fixed_mask = np.zeros(len(nodelist), dtype=bool)
-
-    for node, label in train_label_dict.items():
-        idx = node_to_idx.get(int(node))
-        if idx is None:
-            continue
-        scores[idx] = float(label)
-        fixed_mask[idx] = True
-
-    for _ in range(max_iter):
-        new_scores = np.asarray(transition @ scores).ravel()
-        new_scores[fixed_mask] = scores[fixed_mask]
-        max_delta = float(np.max(np.abs(new_scores - scores))) if len(scores) else 0.0
-        scores = new_scores
-        if max_delta < tol:
-            break
-
-    y_score = np.asarray(
-        [scores[node_to_idx[node]] if node in node_to_idx else train_ml_prior for node in test_list],
-        dtype=np.float64,
-    )
-    y_pred = np.where(y_score > 0.5, 1, np.where(y_score < 0.5, 0, int(default_label))).astype(np.int64)
-
-    return y_pred, y_score
 
 
 def evaluate_predictions(
@@ -481,7 +412,7 @@ def run_repeated_threshold_tuning(
     labels_df: pd.DataFrame,
     partition: Dict[int, int],
     community_summary_df: pd.DataFrame,
-    random_states: Sequence[int] = [42, 7, 21, 84, 123],
+    random_states: Sequence[int] = (42, 7, 21, 84, 123),
     test_size: float = 0.3,
     validation_size: float = 0.2,
     threshold_metric: str = "f1",
@@ -677,7 +608,7 @@ def run_repeated_experiments(
     labels_df: pd.DataFrame,
     n_runs: int = 5,
     test_size: float = 0.3,
-    random_states: Sequence[int] = [42, 7, 21, 84, 123],
+    random_states: Sequence[int] = (42, 7, 21, 84, 123),
 ) -> pd.DataFrame:
     """
     Run repeated train/test experiments across multiple random splits.
@@ -685,7 +616,6 @@ def run_repeated_experiments(
     Models:
     - Majority Baseline
     - Neighbor Majority
-    - Label Propagation
     - Logistic Regression - Graph Features Only
     - Logistic Regression - Graph + Community Features
     """
@@ -730,17 +660,7 @@ def run_repeated_experiments(
         )
         metrics_neighbor = evaluate_predictions(y_test, y_pred_neighbor, y_score_neighbor)
 
-        # 3) Label Propagation
-        y_pred_label_prop, y_score_label_prop = label_propagation_classifier(
-            G=G,
-            labels_dict=labels_dict,
-            train_nodes=train_nodes,
-            test_nodes=test_nodes,
-            default_label=default_label,
-        )
-        metrics_label_prop = evaluate_predictions(y_test, y_pred_label_prop, y_score_label_prop)
-
-        # 4) Logistic regression on graph-only features
+        # 3) Logistic regression on graph-only features
         graph_features_df = extract_graph_neighbor_features(
             G=G,
             labels_dict=labels_dict,
@@ -759,7 +679,7 @@ def run_repeated_experiments(
         )
         metrics_logreg_graph = evaluate_predictions(y_test, y_pred_logreg_graph, y_score_logreg_graph)
 
-        # 5) Logistic regression on graph + community features
+        # 4) Logistic regression on graph + community features
         community_features_df = add_community_features(
             G=G,
             labels_dict=labels_dict,
@@ -789,7 +709,6 @@ def run_repeated_experiments(
         for model_name, metrics in (
             ("Majority Baseline", metrics_majority),
             ("Neighbor Majority", metrics_neighbor),
-            ("Label Propagation", metrics_label_prop),
             ("Logistic Regression - Graph Features Only", metrics_logreg_graph),
             ("Logistic Regression - Graph + Community Features", metrics_logreg_graph_comm),
         ):

@@ -213,7 +213,7 @@ def plot_ablation_comparison(results_df: pd.DataFrame, output_path: Path) -> Non
 
     fig.suptitle("Ablation: What Is the Network Worth? (mean over 5 splits)", fontsize=13)
     fig.tight_layout()
-    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
 

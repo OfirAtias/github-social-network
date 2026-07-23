@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 """
+Extension only: this exploratory subfield analysis is excluded because its
+central methods are outside the selected course-only scope.
+
 Content-based sub-field discovery.
 
 The binary Web/ML target hides the fact that developers span many
@@ -37,9 +40,10 @@ from sklearn.metrics import (
 )
 from sklearn.preprocessing import normalize
 
-SRC_DIR = Path(__file__).resolve().parent
-PROJECT_DIR = SRC_DIR.parent
-sys.path.insert(0, str(SRC_DIR))
+EXTENSIONS_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = EXTENSIONS_DIR.parent
+sys.path.insert(0, str(PROJECT_DIR / "src"))
+sys.path.insert(0, str(EXTENSIONS_DIR))
 
 from community_analysis import detect_louvain_communities
 from content_features import build_content_matrix, load_content_features
