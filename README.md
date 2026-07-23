@@ -1,109 +1,203 @@
-# חיזוי תחום התמחות של מפתחי GitHub לפי קשרי מעקב הדדיים ברשת
+# תחום התמחות של מפתחי GitHub מתוך רשת מעקב הדדית
 
-פרויקט גמר בקורס אלגוריתמים בגרפים. הפרויקט חוזה את תחום ההתמחות (Web מול Machine Learning) של 37,700 מפתחי GitHub מתוך מבנה רשת קשרי המעקב ההדדיים בלבד, ובוחן את הרשת מארבע זוויות מחקריות.
+פרויקט גמר בקורס **אלגוריתמים ברשתות**. הפרויקט מנתח רשת לא־מכוונת של
+37,700 מפתחי GitHub ו־289,003 קשרי מעקב
+הדדיים, ובוחן כמה מידע על התחום המקצועי (Web מול Machine Learning) נמצא
+בשכנות, במרכזיות, בקהילות ובהטמעות גרף.
+
+הגרסה המרכזית משתמשת בשיטות הקורס בלבד. תיקיית `extensions/` שומרת ניסויים
+אופציונליים שאינם חלק מהצנרת, מהתוצאות או מטענות ההגשה.
 
 ## שאלות המחקר
 
-1. **חיזוי צמתים:** באיזו מידה מאפיינים מבניים של הרשת (שכנות, מרכזיות, קהילות וייצוגים נלמדים כגון DeepWalk ו-GCN) מאפשרים לחזות את תחום המפתח?
-2. **רשת מול תוכן:** מהו הערך השולי של מבנה הרשת ביחס למאפייני תוכן (repositories מסומני כוכב, מעסיק, מיקום)?
-3. **שחזור קשתות:** האם ניתן לשחזר קשתות מעקב שהוסתרו באמצעות היוריסטיקות מבניות, והאם קשתות תוך-תחומיות קלות יותר לשחזור?
-4. **תוקף מבני:** האם ההומופיליה, המבנה הקהילתי והתפלגות הדרגות מובהקים סטטיסטית מול מודלי רשת אקראיים?
+1. **RQ1 — סיווג צמתים:** באיזו מידה שכנות, מרכזיות, קהילות וייצוגים נלמדים
+   מאפשרים לסווג את תחום המפתח ללא שימוש בתוויות הבדיקה?
+2. **RQ2 — רשת מול תוכן:** מהו הערך השולי של מבנה הרשת מול מאפייני התוכן,
+   ומה מוסיף שילובם?
+3. **RQ3 — שחזור קשתות:** האם ניתן לשחזר קשתות מעקב שהוסתרו אקראית באמצעות
+   היוריסטיקות מבניות וייצוגים נלמדים, והאם קשתות תוך־תחומיות קלות יותר
+   לשחזור מקשתות בין־תחומיות?
+4. **RQ4 — מודלי אפס ורשת:** האם ההומופיליה והמודולריות הנצפות חריגות ביחס
+   לערבוב תוויות ולגרפים משמרי־דרגות, ואילו מאפיינים משחזרים ER, BA,
+   Small-World ו־Configuration?
+
+RQ3 עוסק **בשחזור קשתות שהוסתרו מתמונת מצב סטטית**, לא בתחזית זמן ולא
+בהסקת מנגנון סיבתי.
 
 ## הדאטה
 
-MUSAE GitHub Social Network (נאסף מה-API הציבורי, יוני 2019):
-- 37,700 צמתים (מפתחים), 289,003 קשתות (מעקב הדדי), רכיב קשיר אחד.
-- תוויות: Web ‏(74.17%) מול Machine Learning ‏(25.83%).
-- `musae_git_features.json`: ‏4,005 מאפייני תוכן בינאריים לצומת. אינם משמשים כקלט בצנרת המרכזית, רק כנקודת ייחוס בניסוי ה-Ablation וכבסיס לגילוי תת-התמחויות.
+הנתונים הם MUSAE GitHub Social Network (יוני 2019):
 
-קבצי הדאטה בתיקיית `data/`.
+- `data/musae_git_edges.csv` — 289,003 קשתות ללא לולאות או
+  כפילויות.
+- `data/musae_git_target.csv` — תווית בינארית מלאה לכל 37,700
+  הצמתים.
+- `data/musae_git_features.json` — מאפייני תוכן דלילים המשמשים רק בניסוי
+  ההשוואה רשת/תוכן.
+- הרשת היא רכיב קשיר יחיד; שיעור הקשתות התוך־תחומיות הוא
+  84.5%.
 
-## מסגרת מתודולוגית
+## אלגוריתמים בגרסה המרכזית
 
-- **Transductive node classification:** מבנה הגרף ידוע לכל הצמתים; תוויות test אינן משמשות באימון, בחישוב מאפיינים או בבחירת ספים.
-- **פרוטוקול אחיד:** כל הניסויים רצים על אותן 5 חלוקות Train/Test מרובדות (70/30, seeds ‏42, 7, 21, 84, 123). הבדל בין מודלים מדווח כעקבי רק אם הוא מופיע בכל חמש החלוקות.
-- **מניעת דליפה בכל משימה:** מאפייני תוויות מ-train בלבד; DeepWalk נלמד ללא תוויות; ב-GCN התוויות רק דרך פונקציית ההפסד ו-epoch נבחר על validation פנימי; בחיזוי קשרים כל ההיוריסטיקות (כולל Louvain) מחושבות על גרף האימון בלבד.
+- ניתוח מבני: Degree Centrality, Clustering Coefficient, PageRank,
+  Betweenness Centrality (בקירוב), HITS Hub יחיד, Louvain ומודולריות.
+- מודלי רשת: Erdős–Rényi, Barabási–Albert, Watts–Strogatz Small-World,
+  Configuration/degree-preserving null ו־Power Law.
+- סיווג: Majority, Neighbor Majority ורגרסיה לוגיסטית על פיצ'רים ידניים,
+  קהילה, תוכן ושילובים.
+- ייצוגים נלמדים: DeepWalk ו־Node2Vec, לבדם ובשילוב פיצ'רים ידניים.
+- שחזור קשתות: Common Neighbors, Jaccard, Adamic-Adar, Preferential
+  Attachment, Same Community, DeepWalk ו־Node2Vec.
+- מודלי אפס: 1,000 ערבובי תוויות ו־20 גרפים משמרי־דרגות, עם
+  `(extreme_count + 1) / (num_simulations + 1)`.
 
-## תוצאות מרכזיות: חיזוי צמתים (ממוצע על 5 חלוקות)
+בסך הכול מדוּוחים **10 מודלי סיווג לוגיים**: ארבעה קווי בסיס/מודלים ידניים,
+תוכן והיברידי, וארבעה מודלי DeepWalk/Node2Vec לבדם ובשילוב ידני.
 
-| מודל | F1 | Macro F1 | ROC-AUC |
-|---|---:|---:|---:|
-| Majority Baseline | 0.000 | 0.426 | 0.500 |
-| Neighbor Majority | 0.517 | 0.703 | 0.785 |
-| Label Propagation | 0.552 | 0.723 | 0.802 |
-| LogReg - Graph Features | 0.637 | 0.751 | 0.841 |
-| LogReg - Graph + Community | 0.672 | 0.772 | 0.869 |
-| GCN - Structural Input | 0.580 | 0.679 | 0.816 |
-| GraphSAGE - Structural Input | 0.585 | 0.697 | 0.808 |
-| LogReg - DeepWalk | 0.694 | 0.786 | 0.887 |
-| LogReg - Content Only | 0.699 | 0.790 | 0.889 |
-| GraphSAGE - DeepWalk Input | 0.703 | 0.791 | 0.893 |
-| GCN - DeepWalk Input | 0.707 | 0.794 | 0.896 |
-| LogReg - DeepWalk + Handcrafted | 0.703 | 0.791 | **0.898** |
-| LogReg - Hybrid (Network + Content) | **0.709** | **0.797** | 0.898 |
+## תוצאות מרכזיות מעודכנות
 
-כל מעבר בסולם המרכזי משפר את קודמו בכל אחת מחמש החלוקות. ממצאים בולטים:
-- **הרשת מגיעה לרמת התוכן:** DeepWalk ‏(0.887) השיג ביצועים דומים מאוד ל-Content ‏(0.889) בכל חמש החלוקות.
-- **ייצוג חשוב מארכיטקטורה:** בשתי ארכיטקטורות GNN ‏(GCN ו-GraphSAGE), החלפת הקלט שווה ~+0.08 AUC והחלפת הארכיטקטורה פחות מ-0.01.
-- **תקרת ביצועים משותפת:** ארבעת המודלים המובילים מתכנסים ל-AUC≈0.90, עקבי עם רעש בתוויות.
+- הסיווג הידני החזק ביותר הוא **Logistic Regression - Graph + Community Features** עם
+  ROC-AUC ממוצע 0.869.
+- רשת ידנית מול תוכן מול היברידי: 0.869 מול 0.889
+  מול 0.898 ROC-AUC.
+- DeepWalk לבדו: 0.891; Node2Vec לבדו:
+  0.890 ROC-AUC. דמיון בביצועים אינו הוכחת שקילות
+  בין מקורות מידע.
+- **Preferential Attachment** מוביל בשחזור הקשתות עם
+  ROC-AUC 0.924.
+- עבור שיטה זו, same-field מול cross-field:
+  0.926 מול
+  0.918 ROC-AUC,
+  ו־0.933 מול
+  0.925 Average
+  Precision.
+- ערכי p האמפיריים הם
+  0.000999 (ערבוב תוויות),
+  0.047619 (גרף משמר־דרגות) ו־
+  0.047619 (מודולריות); אף אחד מהם אינו אפס.
+- המודולריות הנצפית היא 0.453, מול
+  0.189 בממוצע בגרפים משמרי־דרגות.
 
-## ממצאים נוספים
+## תכנון הניסויים
 
-- **שחזור קשתות:** Preferential Attachment מוביל (AUC ‏0.910). בפירוק לפי סוגי קשתות, צפיפות שכונתית ולא דמיון תוויות היא שמסבירה את השחזור (Web-Web ‏0.858 > ‏ML-ML ‏0.767 ב-Adamic-Adar). ציון DeepWalk מבוסס-דמיון (0.694) מפסיד להיוריסטיקת הדרגות, כלומר ייצוגים נלמדים אינם שולטים בכל משימה.
-- **הומופיליה מפורקת לגורמים:** 84.5% קשתות same-label, רחוק מכל 1,000 ערבובי התוויות (צפי 61.7%) ומכל 20 הערבולים משמרי-הדרגות (צפי 75.1%); כ-60% מוסברים בהבדלי דרגות, והעודף (~9.4 נק') הוא העדפה תוך-תחומית אמיתית.
-- **מודולריות:** 0.453 מול 0.189±0.001 ברשתות מעורבלות משמרות-דרגות.
-- **תת-התמחויות:** קהילות הרשת מיושרות עם אשכולות תוכן (NMI ‏0.257) פי ~2.4 יותר מאשר עם התווית הבינארית (0.106).
-- **אפיון הרשת:** Small-World (התקבצות פי ~420 מ-ER, מרחק ממוצע 3.22), כבדת-זנב (α=2.54, לא ניתן להבחנה מלוג-נורמלית).
+- כל תוצאות הסיווג מדווחות כממוצע וסטיית תקן על seeds
+  `42, 7, 21, 84, 123`.
+- מאפיינים המבוססים על תוויות משתמשים בתוויות train בלבד.
+- בחירת סף נעשית על validation פנימי, לא על test.
+- DeepWalk ו־Node2Vec נלמדים ללא תוויות.
+- בשחזור קשתות מוגן עץ פורש; כל קשתות test מגיעות מן הקשתות שאינן בעץ.
+  כל גרף אימון נבדק עם `assert nx.is_connected(G_train)` וללא צמתים
+  מבודדים.
+- non-edges נדגמים באותו מספר בתוך Web-Web, ML-ML ו־Web-ML, כך שהשוואת
+  same-field/cross-field הוגנת.
 
-## מבנה הפרויקט
+## מבנה הריפוזיטורי
 
+```text
+data/                 נתוני MUSAE המקוריים
+src/                  קוד הצנרת, builders ו-validation
+extensions/           הרחבות אופציונליות מחוץ להגשה המרכזית
+notebooks/            המחברת הסופית והמורצת
+outputs/tables/       כל טבלאות ה-CSV העדכניות
+outputs/figures/      כל הגרפים העדכניים ברזולוציה גבוהה
+outputs/embeddings/   קובצי DeepWalk ו-Node2Vec
+report/report_source.docx   מקור העריכה של הדוח
+report/final_report.pdf     הדוח הסופי (עד 8 עמודים)
+tests/                בדיקות יחידה לפרוטוקולים הקריטיים
 ```
-data/                  קבצי הדאטה (MUSAE)
-notebooks/             המחברת הראשית (23 פרקים, מקצה לקצה)
-src/
-  data_loader.py       טעינת דאטה ובניית הגרף
-  graph_analysis.py    סטטיסטיקה מבנית והומופיליה
-  community_analysis.py  Louvain ומאפייני קהילה
-  modeling.py          חמשת מודלי הבסיס, הערכה, כיול סף
-  visualization.py     גרפים של הצנרת הבסיסית
-  content_features.py  מאפייני תוכן ומודלי Ablation
-  embeddings.py        DeepWalk (הילוכים + Word2Vec)
-  gnn.py               GCN ו-GraphSAGE ב-PyTorch (מטריצות דלילות)
-  link_prediction.py   פרוטוקול והיוריסטיקות לחיזוי קשרים
-  run_ablation.py      ניסוי רשת/תוכן/היברידי
-  run_subfields.py     גילוי תת-התמחויות
-  run_deepwalk.py      ניסוי DeepWalk + t-SNE
-  run_gnn.py           ניסוי GNN ‏2x2: שתי ארכיטקטורות, שתי גרסאות קלט
-  run_link_prediction.py  חיזוי קשרים
-  run_null_models.py   מודלי אפס ומובהקות מבנית
-outputs/
-  tables/              כל טבלאות התוצאות (CSV)
-  figures/             כל האיורים (PNG)
-  embeddings/          ייצוגי DeepWalk שמורים (NPZ)
-report/                הדוח המסכם
+
+## התקנה והרצה — Windows PowerShell
+
+```powershell
+cd C:\path\to\github-social-network
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+$env:PYTHONHASHSEED="0"
+
+# מוחק רק פלטים ישנים תחת outputs/ ובונה הכול מחדש
+python src/run_all.py
+
+# ה-PDF וה-DOCX נבנו כבר ב-run_all; לבנייה ממוקדת של ה-PDF:
+python src/build_report_pdf.py
+
+# הרצת המחברת כולה מתוך הריפוזיטורי
+python -m nbconvert --to notebook --execute --inplace `
+  --ExecutePreprocessor.timeout=-1 `
+  notebooks/GitHub_Developer_Field_Prediction_Network_Only.ipynb
+
+python src/final_validation.py
 ```
 
-## הרצה
+## התקנה והרצה — Linux/macOS
 
 ```bash
-pip install -r requirements.txt
-PYTHONHASHSEED=0 python -m nbconvert --to notebook --execute --inplace notebooks/GitHub_Developer_Field_Prediction_Network_Only.ipynb
+cd /path/to/github-social-network
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+export PYTHONHASHSEED=0
+
+python src/run_all.py
+
+# ה-PDF וה-DOCX נבנו כבר ב-run_all; לבנייה ממוקדת של ה-PDF:
+python src/build_report_pdf.py
+
+python -m nbconvert --to notebook --execute --inplace   --ExecutePreprocessor.timeout=-1   notebooks/GitHub_Developer_Field_Prediction_Network_Only.ipynb
+
+python src/final_validation.py
 ```
 
-המחברת מריצה את הכל מקצה לקצה (מספר שעות). לחלופין, כל ניסוי ניתן להרצה עצמאית: `python src/run_ablation.py` וכו'. הערה: `run_gnn.py` דורש ש-`run_deepwalk.py` ירוץ קודם (משתמש ב-embeddings השמורים).
+## הרצה ממוקדת
 
-**שחזוריות:** כל התהליכים האקראיים קבועי seed, ואימון ה-DeepWalk רץ על thread יחיד כדי שהתוצאות יהיו זהות בין הרצות. לשחזור מלא מומלץ להריץ עם משתנה הסביבה `PYTHONHASHSEED=0`.
+```bash
+python src/run_core_analysis.py
+python src/run_classification.py
+python src/run_ablation.py
+python src/run_embeddings.py
+python src/run_link_prediction.py
+python src/run_null_models.py
+python src/build_notebook.py
+python src/build_report.py
+python src/build_report_pdf.py
+```
 
-## מקורות
+`python src/run_all.py` הוא המסלול הסמכותי: הוא מנקה את `outputs/`, מריץ את
+השלבים בסדר הנכון ובונה מחדש את המחברת, ה־README, מקור הדוח וה־PDF הסופי.
 
-1. Rozemberczki, B., Allen, C., & Sarkar, R. (2019). Multi-scale Attributed Node Embedding (MUSAE).
-2. McPherson, M., Smith-Lovin, L., & Cook, J. M. (2001). Birds of a Feather: Homophily in Social Networks. Annual Review of Sociology.
-3. Blondel, V. D., et al. (2008). Fast unfolding of communities in large networks.
-4. Perozzi, B., Al-Rfou, R., & Skiena, S. (2014). DeepWalk: Online Learning of Social Representations. KDD.
-5. Kipf, T. N., & Welling, M. (2017). Semi-Supervised Classification with Graph Convolutional Networks. ICLR.
-6. Liben-Nowell, D., & Kleinberg, J. (2003). The Link Prediction Problem for Social Networks. CIKM.
-7. Clauset, A., Shalizi, C. R., & Newman, M. E. J. (2009). Power-law distributions in empirical data. SIAM Review.
-8. Broido, A. D., & Clauset, A. (2019). Scale-free networks are rare. Nature Communications.
-9. Page, L., et al. (1999). The PageRank Citation Ranking.
-10. Hamilton, W., Ying, R., & Leskovec, J. (2017). Inductive Representation Learning on Large Graphs. NeurIPS.
-11. מצגות ותרגולי הקורס.
+## Validation סופי
+
+`python src/final_validation.py` נכשל אם:
+
+- חסר פלט או CSV ריק/לא־קריא;
+- יש NaN/Inf או מדד מחוץ לטווח;
+- מספרי הצמתים/קשתות אינם תואמים;
+- יש לולאות, כפילויות או תוויות חסרות;
+- אחד מחמשת גרפי האימון מנותק או מכיל מבודדים;
+- positive/negative אינם מותאמים לפי סוג קשת;
+- ערך p אמפירי הוא אפס או גדול מאחד;
+- מודל חסר/עודף או פלט ישן נשאר;
+- ערכי המחברת אינם תואמים ל־CSV;
+- הדוח חסר מקור עריכה או חורג משמונה עמודים.
+
+רק לאחר כל הבדיקות מודפסת ההודעה:
+
+```text
+ALL FINAL PROJECT VALIDATIONS PASSED
+```
+
+## מגבלות
+
+- הנתונים נאספו ביוני 2019 ותווית היעד בינארית.
+- הסיווג transductive ומניח שמבנה הגרף ידוע.
+- Betweenness מקורב; תקציב ההטמעות קבוע ולא בוצע חיפוש פרמטרים נרחב.
+- שחזור קשתות שהוסתרו אינו תחזית זמן ואינו הוכחה סיבתית.
+- מודלי האפס והמודלים הגנרטיביים מבודדים מאפיינים מסוימים ואינם תיאור מלא
+  של כל תהליכי הרשת.
+
+## מקורות עיקריים
+
+MUSAE; Louvain; PageRank; DeepWalk; Node2Vec; Link Prediction; Power-law
+distributions; ומצגות/תרגולי הקורס בנושאי מרכזיות, קהילות ומודלי רשת.
