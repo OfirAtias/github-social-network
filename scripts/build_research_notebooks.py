@@ -799,6 +799,11 @@ def main():
         print(f"Wrote {filename}: {len(notebook.cells)} cells")
     write_index()
     print("Wrote notebooks/README.md")
+    # Apply the permanent English documentation and legacy-content merge after
+    # generation so rebuilt notebooks do not regress to the old Hebrew text.
+    from englishize_notebooks import englishize_all
+
+    englishize_all(ROOT)
 
 
 if __name__ == "__main__":

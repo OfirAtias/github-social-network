@@ -1,203 +1,96 @@
-# תחום התמחות של מפתחי GitHub מתוך רשת מעקב הדדית
+# GitHub Developer Field from a Mutual-Follow Network
 
-פרויקט גמר בקורס **אלגוריתמים ברשתות**. הפרויקט מנתח רשת לא־מכוונת של
-37,700 מפתחי GitHub ו־289,003 קשרי מעקב
-הדדיים, ובוחן כמה מידע על התחום המקצועי (Web מול Machine Learning) נמצא
-בשכנות, במרכזיות, בקהילות ובהטמעות גרף.
+Final project for the Graph Algorithms course.
 
-הגרסה המרכזית משתמשת בשיטות הקורס בלבד. תיקיית `extensions/` שומרת ניסויים
-אופציונליים שאינם חלק מהצנרת, מהתוצאות או מטענות ההגשה.
+This project studies an undirected network of 37,700 GitHub developers and 289,003 mutual-follow edges. The goal is to understand how much information about developer field, Web versus Machine Learning, is present in neighborhoods, centrality, communities, graph embeddings, and content features.
 
-## שאלות המחקר
+The main pipeline uses the course methods. The `extensions/` folder contains optional experiments that are documented separately and are not mixed into the main claims.
 
-1. **RQ1 — סיווג צמתים:** באיזו מידה שכנות, מרכזיות, קהילות וייצוגים נלמדים
-   מאפשרים לסווג את תחום המפתח ללא שימוש בתוויות הבדיקה?
-2. **RQ2 — רשת מול תוכן:** מהו הערך השולי של מבנה הרשת מול מאפייני התוכן,
-   ומה מוסיף שילובם?
-3. **RQ3 — שחזור קשתות:** האם ניתן לשחזר קשתות מעקב שהוסתרו אקראית באמצעות
-   היוריסטיקות מבניות וייצוגים נלמדים, והאם קשתות תוך־תחומיות קלות יותר
-   לשחזור מקשתות בין־תחומיות?
-4. **RQ4 — מודלי אפס ורשת:** האם ההומופיליה והמודולריות הנצפות חריגות ביחס
-   לערבוב תוויות ולגרפים משמרי־דרגות, ואילו מאפיינים משחזרים ER, BA,
-   Small-World ו־Configuration?
+## Research Questions
 
-RQ3 עוסק **בשחזור קשתות שהוסתרו מתמונת מצב סטטית**, לא בתחזית זמן ולא
-בהסקת מנגנון סיבתי.
+1. **RQ1: Node classification.** Can network neighborhoods, centrality, communities, and learned graph representations classify developer field without using test labels?
+2. **RQ2: Network versus content.** How much predictive value comes from network structure compared with content features, and what does their combination add?
+3. **RQ3: Static edge reconstruction.** Can randomly hidden mutual-follow edges be reconstructed, and are same-field edges easier to reconstruct than cross-field edges?
+4. **RQ4: Null models.** Are the observed homophily and modularity unusual compared with label shuffling and degree-preserving graphs?
 
-## הדאטה
+RQ3 reconstructs hidden edges from one static snapshot. It is not a time-based forecast and does not prove how links are formed.
 
-הנתונים הם MUSAE GitHub Social Network (יוני 2019):
+## Data
 
-- `data/musae_git_edges.csv` — 289,003 קשתות ללא לולאות או
-  כפילויות.
-- `data/musae_git_target.csv` — תווית בינארית מלאה לכל 37,700
-  הצמתים.
-- `data/musae_git_features.json` — מאפייני תוכן דלילים המשמשים רק בניסוי
-  ההשוואה רשת/תוכן.
-- הרשת היא רכיב קשיר יחיד; שיעור הקשתות התוך־תחומיות הוא
-  84.5%.
+The project uses the June 2019 MUSAE GitHub Social Network:
 
-## אלגוריתמים בגרסה המרכזית
+- `data/musae_git_edges.csv`: 289,003 undirected mutual-follow edges.
+- `data/musae_git_target.csv`: one binary label for each of the 37,700 nodes.
+- `data/musae_git_features.json`: sparse content features used in the network/content comparison.
 
-- ניתוח מבני: Degree Centrality, Clustering Coefficient, PageRank,
-  Betweenness Centrality (בקירוב), HITS Hub יחיד, Louvain ומודולריות.
-- מודלי רשת: Erdős–Rényi, Barabási–Albert, Watts–Strogatz Small-World,
-  Configuration/degree-preserving null ו־Power Law.
-- סיווג: Majority, Neighbor Majority ורגרסיה לוגיסטית על פיצ'רים ידניים,
-  קהילה, תוכן ושילובים.
-- ייצוגים נלמדים: DeepWalk ו־Node2Vec, לבדם ובשילוב פיצ'רים ידניים.
-- שחזור קשתות: Common Neighbors, Jaccard, Adamic-Adar, Preferential
-  Attachment, Same Community, DeepWalk ו־Node2Vec.
-- מודלי אפס: 1,000 ערבובי תוויות ו־20 גרפים משמרי־דרגות, עם
-  `(extreme_count + 1) / (num_simulations + 1)`.
+The graph has one connected component, no self-loops, no duplicate undirected edges, and complete label coverage.
 
-בסך הכול מדוּוחים **10 מודלי סיווג לוגיים**: ארבעה קווי בסיס/מודלים ידניים,
-תוכן והיברידי, וארבעה מודלי DeepWalk/Node2Vec לבדם ובשילוב ידני.
+## Main Methods
 
-## תוצאות מרכזיות מעודכנות
+- Structural analysis: Degree, clustering coefficient, PageRank, sampled betweenness, HITS hub score, Louvain communities, and modularity.
+- Node classification: majority baseline, neighbor-majority baseline, and logistic regression with graph, community, content, and hybrid features.
+- Learned representations: DeepWalk and Node2Vec, tested alone and with handcrafted graph features.
+- Link reconstruction: Common Neighbors, Jaccard, Adamic-Adar, Preferential Attachment, Same Community, DeepWalk, and Node2Vec.
+- Null models: label shuffling, degree-preserving rewiring, ER, BA, Watts-Strogatz, configuration model, and power-law diagnostics.
 
-- הסיווג הידני החזק ביותר הוא **Logistic Regression - Graph + Community Features** עם
-  ROC-AUC ממוצע 0.869.
-- רשת ידנית מול תוכן מול היברידי: 0.869 מול 0.889
-  מול 0.898 ROC-AUC.
-- DeepWalk לבדו: 0.891; Node2Vec לבדו:
-  0.890 ROC-AUC. דמיון בביצועים אינו הוכחת שקילות
-  בין מקורות מידע.
-- **Preferential Attachment** מוביל בשחזור הקשתות עם
-  ROC-AUC 0.924.
-- עבור שיטה זו, same-field מול cross-field:
-  0.926 מול
-  0.918 ROC-AUC,
-  ו־0.933 מול
-  0.925 Average
-  Precision.
-- ערכי p האמפיריים הם
-  0.000999 (ערבוב תוויות),
-  0.047619 (גרף משמר־דרגות) ו־
-  0.047619 (מודולריות); אף אחד מהם אינו אפס.
-- המודולריות הנצפית היא 0.453, מול
-  0.189 בממוצע בגרפים משמרי־דרגות.
+## Main Findings
 
-## תכנון הניסויים
+- The best handcrafted node-classification model is `Logistic Regression - Graph + Community Features`, with mean ROC-AUC 0.869.
+- Content features alone reach ROC-AUC 0.889, while the hybrid network-content model reaches ROC-AUC 0.898.
+- DeepWalk and Node2Vec alone are close to ROC-AUC 0.891 and 0.890; adding graph and community features raises performance to about 0.900.
+- Preferential Attachment is the strongest static edge-reconstruction score, with mean ROC-AUC 0.924.
+- Observed homophily is high: 84.5% of labeled edges connect developers from the same field.
+- The observed modularity is 0.453, compared with 0.189 on average under degree-preserving rewiring.
+- The empirical p-values are 0.000999 for label shuffling, 0.047619 for degree-preserving homophily, and 0.047619 for modularity.
 
-- כל תוצאות הסיווג מדווחות כממוצע וסטיית תקן על seeds
-  `42, 7, 21, 84, 123`.
-- מאפיינים המבוססים על תוויות משתמשים בתוויות train בלבד.
-- בחירת סף נעשית על validation פנימי, לא על test.
-- DeepWalk ו־Node2Vec נלמדים ללא תוויות.
-- בשחזור קשתות מוגן עץ פורש; כל קשתות test מגיעות מן הקשתות שאינן בעץ.
-  כל גרף אימון נבדק עם `assert nx.is_connected(G_train)` וללא צמתים
-  מבודדים.
-- non-edges נדגמים באותו מספר בתוך Web-Web, ML-ML ו־Web-ML, כך שהשוואת
-  same-field/cross-field הוגנת.
+These findings show a strong descriptive link between developer field and network structure. They do not establish causality.
 
-## מבנה הריפוזיטורי
+## Repository Structure
 
 ```text
-data/                 נתוני MUSAE המקוריים
-src/                  קוד הצנרת, builders ו-validation
-extensions/           הרחבות אופציונליות מחוץ להגשה המרכזית
-notebooks/            המחברת הסופית והמורצת
-outputs/tables/       כל טבלאות ה-CSV העדכניות
-outputs/figures/      כל הגרפים העדכניים ברזולוציה גבוהה
-outputs/embeddings/   קובצי DeepWalk ו-Node2Vec
-report/report_source.docx   מקור העריכה של הדוח
-report/final_report.pdf     הדוח הסופי (עד 8 עמודים)
-tests/                בדיקות יחידה לפרוטוקולים הקריטיים
+data/                 Original MUSAE input files
+src/                  Pipeline code, experiment runners, and artifact builders
+extensions/           Optional work beyond the core pipeline
+notebooks/            Final executed notebook series and notebook index
+outputs/tables/       Current CSV result tables
+outputs/figures/      Current saved figures
+outputs/embeddings/   DeepWalk and Node2Vec vector files
+report/               Final report artifacts
+tests/                Focused tests for critical protocols
 ```
 
-## התקנה והרצה — Windows PowerShell
+## Notebook Series
+
+The final notebook order is documented in `notebooks/README.md`. The numbered notebooks 01-09 contain the cleaned English research workflow. The consolidated compatibility notebook, `GitHub_Developer_Field_Prediction_Network_Only.ipynb`, is also kept.
+
+## Reproducible Run
+
+Windows PowerShell:
 
 ```powershell
-cd C:\path\to\github-social-network
 py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r .\requirements.txt
 $env:PYTHONHASHSEED="0"
-
-# מוחק רק פלטים ישנים תחת outputs/ ובונה הכול מחדש
-python src/run_all.py
-
-# ה-PDF וה-DOCX נבנו כבר ב-run_all; לבנייה ממוקדת של ה-PDF:
-python src/build_report_pdf.py
-
-# הרצת המחברת כולה מתוך הריפוזיטורי
-python -m nbconvert --to notebook --execute --inplace `
-  --ExecutePreprocessor.timeout=-1 `
-  notebooks/GitHub_Developer_Field_Prediction_Network_Only.ipynb
-
-python src/final_validation.py
+.\.venv\Scripts\python.exe .\src\run_all.py
 ```
 
-## התקנה והרצה — Linux/macOS
+Run the final project check:
 
-```bash
-cd /path/to/github-social-network
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-export PYTHONHASHSEED=0
-
-python src/run_all.py
-
-# ה-PDF וה-DOCX נבנו כבר ב-run_all; לבנייה ממוקדת של ה-PDF:
-python src/build_report_pdf.py
-
-python -m nbconvert --to notebook --execute --inplace   --ExecutePreprocessor.timeout=-1   notebooks/GitHub_Developer_Field_Prediction_Network_Only.ipynb
-
-python src/final_validation.py
+```powershell
+.\.venv\Scripts\python.exe .\src\final_validation.py
 ```
 
-## הרצה ממוקדת
-
-```bash
-python src/run_core_analysis.py
-python src/run_classification.py
-python src/run_ablation.py
-python src/run_embeddings.py
-python src/run_link_prediction.py
-python src/run_null_models.py
-python src/build_notebook.py
-python src/build_report.py
-python src/build_report_pdf.py
-```
-
-`python src/run_all.py` הוא המסלול הסמכותי: הוא מנקה את `outputs/`, מריץ את
-השלבים בסדר הנכון ובונה מחדש את המחברת, ה־README, מקור הדוח וה־PDF הסופי.
-
-## Validation סופי
-
-`python src/final_validation.py` נכשל אם:
-
-- חסר פלט או CSV ריק/לא־קריא;
-- יש NaN/Inf או מדד מחוץ לטווח;
-- מספרי הצמתים/קשתות אינם תואמים;
-- יש לולאות, כפילויות או תוויות חסרות;
-- אחד מחמשת גרפי האימון מנותק או מכיל מבודדים;
-- positive/negative אינם מותאמים לפי סוג קשת;
-- ערך p אמפירי הוא אפס או גדול מאחד;
-- מודל חסר/עודף או פלט ישן נשאר;
-- ערכי המחברת אינם תואמים ל־CSV;
-- הדוח חסר מקור עריכה או חורג משמונה עמודים.
-
-רק לאחר כל הבדיקות מודפסת ההודעה:
+Expected success message:
 
 ```text
 ALL FINAL PROJECT VALIDATIONS PASSED
 ```
 
-## מגבלות
+## Limitations
 
-- הנתונים נאספו ביוני 2019 ותווית היעד בינארית.
-- הסיווג transductive ומניח שמבנה הגרף ידוע.
-- Betweenness מקורב; תקציב ההטמעות קבוע ולא בוצע חיפוש פרמטרים נרחב.
-- שחזור קשתות שהוסתרו אינו תחזית זמן ואינו הוכחה סיבתית.
-- מודלי האפס והמודלים הגנרטיביים מבודדים מאפיינים מסוימים ואינם תיאור מלא
-  של כל תהליכי הרשת.
-
-## מקורות עיקריים
-
-MUSAE; Louvain; PageRank; DeepWalk; Node2Vec; Link Prediction; Power-law
-distributions; ומצגות/תרגולי הקורס בנושאי מרכזיות, קהילות ומודלי רשת.
+- The data are a June 2019 snapshot and may not represent GitHub today.
+- The target label is binary and may contain noise.
+- Node classification is transductive: the graph structure is known during evaluation.
+- Betweenness is approximated because the graph is large.
+- Hidden-edge reconstruction is a static task, not a time-based forecast.
+- Null models isolate specific properties; they are not full models of all network formation processes.
