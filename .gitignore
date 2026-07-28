@@ -30,5 +30,7 @@ desktop.ini
 
 # Reproducibility scratch and document-render QA
 tmp/
+outputs/
+report/
 report/.render/
 *.log

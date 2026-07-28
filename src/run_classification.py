@@ -16,14 +16,21 @@ PROJECT_DIR = SRC_DIR.parent
 sys.path.insert(0, str(SRC_DIR))
 
 from community_analysis import (
+    add_community_features,
     detect_louvain_communities,
     summarize_communities,
 )
 from data_loader import load_dataset
 from modeling import (
+    evaluate_by_degree_group,
+    evaluate_errors_by_community_purity,
+    extract_graph_neighbor_features,
+    prepare_train_test_split,
     run_repeated_experiments,
     run_repeated_threshold_tuning,
+    train_logistic_regression_graph_features,
 )
+from visualization import plot_community_purity_error_rates
 
 
 SEEDS = (42, 7, 21, 84, 123)
@@ -157,6 +164,39 @@ def _plot_thresholds(summary_df: pd.DataFrame, output_path: Path) -> None:
     plt.close(fig)
 
 
+def _plot_degree_groups(results_df: pd.DataFrame, output_path: Path) -> None:
+    """Plot held-out performance across ordered node-degree groups."""
+    labels = ["0-2", "3-5", "6-10", "11-30", "31+"]
+    x = np.arange(len(results_df))
+    width = 0.36
+    fig, ax = plt.subplots(figsize=(9, 5.2))
+    ax.bar(
+        x - width / 2,
+        results_df["balanced_accuracy"],
+        width,
+        color="#315C8D",
+        label="Balanced Accuracy",
+    )
+    ax.bar(
+        x + width / 2,
+        results_df["f1"],
+        width,
+        color="#4F8A5B",
+        label="F1",
+    )
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_ylim(0.0, 1.0)
+    ax.set_xlabel("Node degree")
+    ax.set_ylabel("Held-out score")
+    ax.set_title("Classification performance by node degree")
+    ax.legend()
+    ax.grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     data_dir = PROJECT_DIR / "data"
     tables_dir = PROJECT_DIR / "outputs" / "tables"
@@ -194,6 +234,55 @@ def main() -> None:
     )
     threshold_summary_df = summarize_thresholds(threshold_df)
 
+    # Diagnose the strongest handcrafted model on one prespecified split.
+    # The split is not selected from the results, and all label-derived
+    # neighborhood/community features use training labels only.
+    train_nodes, test_nodes, y_train, y_test = prepare_train_test_split(
+        labels_df,
+        test_size=0.30,
+        random_state=SEEDS[0],
+    )
+    nodes_for_features = list(train_nodes) + list(test_nodes)
+    graph_features = extract_graph_neighbor_features(
+        G,
+        labels_dict,
+        train_nodes,
+        nodes_for_features,
+    ).drop_duplicates(subset=["node_id"])
+    community_features = add_community_features(
+        G,
+        labels_dict,
+        train_nodes,
+        nodes_for_features,
+        partition,
+        community_df,
+    ).drop_duplicates(subset=["node_id"])
+    combined_features = graph_features.merge(
+        community_features,
+        on="node_id",
+        how="inner",
+    ).set_index("node_id")
+    X_train = combined_features.reindex(train_nodes).reset_index()
+    X_test = combined_features.reindex(test_nodes).reset_index()
+    _, y_pred, _ = train_logistic_regression_graph_features(
+        X_train,
+        y_train,
+        X_test,
+    )
+    degree_group_df = evaluate_by_degree_group(
+        G,
+        test_nodes,
+        y_test,
+        y_pred,
+    )
+    purity_error_df = evaluate_errors_by_community_purity(
+        test_nodes,
+        y_test,
+        y_pred,
+        partition,
+        community_df,
+    )
+
     results_df.to_csv(
         tables_dir / "classification_results.csv", index=False
     )
@@ -206,6 +295,12 @@ def main() -> None:
     threshold_summary_df.to_csv(
         tables_dir / "threshold_tuning_summary.csv", index=False
     )
+    degree_group_df.to_csv(
+        tables_dir / "classification_by_degree_group.csv", index=False
+    )
+    purity_error_df.to_csv(
+        tables_dir / "classification_by_community_purity.csv", index=False
+    )
 
     _plot_models(
         summary_df, figures_dir / "classification_comparison.png"
@@ -213,8 +308,18 @@ def main() -> None:
     _plot_thresholds(
         threshold_summary_df, figures_dir / "threshold_tradeoff.png"
     )
+    _plot_degree_groups(
+        degree_group_df,
+        figures_dir / "classification_by_degree_group.png",
+    )
+    plot_community_purity_error_rates(
+        purity_error_df,
+        figures_dir,
+    )
     print(summary_df.to_string(index=False))
     print(threshold_summary_df.to_string(index=False))
+    print(degree_group_df.to_string(index=False))
+    print(purity_error_df.to_string(index=False))
 
 
 if __name__ == "__main__":
