@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Extension only: this exploratory subfield analysis is excluded because its
 central methods are outside the selected course-only scope.

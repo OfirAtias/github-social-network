@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from typing import Dict, Iterable, Sequence, Tuple
 
 import networkx as nx

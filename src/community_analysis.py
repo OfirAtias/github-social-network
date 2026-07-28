@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from collections import Counter, defaultdict
 from typing import Dict, Iterable, Tuple
 

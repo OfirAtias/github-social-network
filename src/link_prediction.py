@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Leakage-safe reconstruction of randomly hidden edges.
 
 Each split protects a spanning tree, removes test positives only from the

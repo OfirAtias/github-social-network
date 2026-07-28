@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 DeepWalk and Node2Vec node embeddings.
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Extension only: this experiment is excluded from the course-only pipeline and
 from every result reported in the notebook, README, and final report.

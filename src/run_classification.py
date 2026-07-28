@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Repeated leakage-safe node classification with course-covered features."""
 
 from pathlib import Path

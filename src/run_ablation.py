@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Ablation experiment: how much is the network worth?
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """DeepWalk and Node2Vec classification under one fair repeated protocol."""
 
 from pathlib import Path

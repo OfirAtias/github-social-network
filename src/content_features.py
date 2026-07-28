@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Content-feature loading and ablation models (features-only / hybrid).
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Connected, repeated edge-reconstruction experiment.
 
 The task reconstructs randomly hidden edges in a static snapshot; it does not

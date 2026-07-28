@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Extension only: this module is retained for reference and is not part of the
 course-only analysis, reported results, or reproducibility pipeline.

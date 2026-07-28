@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Null models and statistical significance of the structural findings.
 

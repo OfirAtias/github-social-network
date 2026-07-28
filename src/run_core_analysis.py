@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Core descriptive, centrality and Louvain analyses for the final project."""
 
 from itertools import combinations
