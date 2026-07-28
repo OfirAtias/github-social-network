@@ -27,9 +27,10 @@ from modeling import (
     prepare_train_test_split,
     run_repeated_experiments,
     run_repeated_threshold_tuning,
+    summarize_error_types,
     train_logistic_regression_graph_features,
 )
-from visualization import plot_community_purity_error_rates
+from visualization import plot_community_purity_error_rates, plot_error_type_counts
 
 
 SEEDS = (42, 7, 21, 84, 123)
@@ -281,6 +282,7 @@ def main() -> None:
         partition,
         community_df,
     )
+    error_types_df = summarize_error_types(y_test, y_pred)
 
     results_df.to_csv(
         tables_dir / "classification_results.csv", index=False
@@ -300,6 +302,9 @@ def main() -> None:
     purity_error_df.to_csv(
         tables_dir / "classification_by_community_purity.csv", index=False
     )
+    error_types_df.to_csv(
+        tables_dir / "classification_error_types.csv", index=False
+    )
 
     _plot_models(
         summary_df, figures_dir / "classification_comparison.png"
@@ -315,10 +320,15 @@ def main() -> None:
         purity_error_df,
         figures_dir,
     )
+    plot_error_type_counts(
+        error_types_df,
+        figures_dir,
+    )
     print(summary_df.to_string(index=False))
     print(threshold_summary_df.to_string(index=False))
     print(degree_group_df.to_string(index=False))
     print(purity_error_df.to_string(index=False))
+    print(error_types_df.to_string(index=False))
 
 
 if __name__ == "__main__":
