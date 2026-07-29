@@ -22,7 +22,21 @@ def load_edges(path: str | Path) -> pd.DataFrame:
     edges_df = edges_df.loc[:, list(EDGE_COLUMNS)].copy()
     edges_df["id_1"] = pd.to_numeric(edges_df["id_1"], errors="coerce")
     edges_df["id_2"] = pd.to_numeric(edges_df["id_2"], errors="coerce")
-    edges_df = edges_df.dropna(subset=["id_1", "id_2"]).astype({"id_1": "int64", "id_2": "int64"})
+    if edges_df[list(EDGE_COLUMNS)].isna().any().any():
+        raise ValueError("Edge file contains missing or non-numeric endpoints.")
+    edges_df = edges_df.astype({"id_1": "int64", "id_2": "int64"})
+
+    if (edges_df["id_1"] == edges_df["id_2"]).any():
+        raise ValueError("Edge file contains self-loops.")
+
+    canonical_edges = pd.DataFrame(
+        {
+            "u": edges_df[["id_1", "id_2"]].min(axis=1),
+            "v": edges_df[["id_1", "id_2"]].max(axis=1),
+        }
+    )
+    if canonical_edges.duplicated().any():
+        raise ValueError("Edge file contains duplicate undirected edges.")
 
     return edges_df
 
@@ -44,10 +58,12 @@ def load_targets(path: str | Path) -> pd.DataFrame:
     labels_df = targets_df.loc[:, keep_columns].copy()
     labels_df[TARGET_ID_COLUMN] = pd.to_numeric(labels_df[TARGET_ID_COLUMN], errors="coerce")
     labels_df[TARGET_LABEL_COLUMN] = pd.to_numeric(labels_df[TARGET_LABEL_COLUMN], errors="coerce")
-    labels_df = labels_df.dropna(subset=[TARGET_ID_COLUMN, TARGET_LABEL_COLUMN])
+    if labels_df[[TARGET_ID_COLUMN, TARGET_LABEL_COLUMN]].isna().any().any():
+        raise ValueError("Target file contains missing or non-numeric IDs or labels.")
     labels_df[TARGET_ID_COLUMN] = labels_df[TARGET_ID_COLUMN].astype("int64")
     labels_df[TARGET_LABEL_COLUMN] = labels_df[TARGET_LABEL_COLUMN].astype("int64")
-    labels_df = labels_df.drop_duplicates(subset=[TARGET_ID_COLUMN], keep="first")
+    if labels_df[TARGET_ID_COLUMN].duplicated().any():
+        raise ValueError("Target file contains duplicate node IDs.")
 
     unique_labels = set(labels_df[TARGET_LABEL_COLUMN].unique())
     if not unique_labels.issubset({0, 1}):
@@ -92,6 +108,9 @@ def load_dataset(data_dir: str | Path) -> Tuple[nx.Graph, pd.DataFrame, pd.DataF
     graph = build_graph(edges_df)
 
     labels_dict = dict(zip(labels_df["id"], labels_df["label"]))
+    missing_labels = set(graph.nodes()) - set(labels_dict)
+    if missing_labels:
+        raise ValueError(f"Graph contains {len(missing_labels)} nodes without labels.")
     nx.set_node_attributes(graph, labels_dict, name="label")
 
     return graph, edges_df, labels_df, labels_dict

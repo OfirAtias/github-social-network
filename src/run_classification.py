@@ -243,19 +243,21 @@ def main() -> None:
         random_state=SEEDS[0],
     )
     nodes_for_features = list(train_nodes) + list(test_nodes)
+    train_labels = {
+        int(node): int(labels_dict[int(node)]) for node in train_nodes
+    }
     graph_features = extract_graph_neighbor_features(
         G,
-        labels_dict,
+        train_labels,
         train_nodes,
         nodes_for_features,
     ).drop_duplicates(subset=["node_id"])
     community_features = add_community_features(
         G,
-        labels_dict,
+        train_labels,
         train_nodes,
         nodes_for_features,
         partition,
-        community_df,
     ).drop_duplicates(subset=["node_id"])
     combined_features = graph_features.merge(
         community_features,

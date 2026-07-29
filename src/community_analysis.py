@@ -86,7 +86,6 @@ def add_community_features(
     train_nodes: Iterable[int],
     nodes: Iterable[int],
     partition: Dict[int, int],
-    community_summary_df: pd.DataFrame,
 ) -> pd.DataFrame:
     """
     Build community-based node features.
@@ -94,12 +93,10 @@ def add_community_features(
     Label-based features are calculated from train labels only.
     """
     train_set = {int(node) for node in train_nodes}
-    community_size_map = dict(
-        zip(
-            community_summary_df["community_id"].astype(int),
-            community_summary_df["size"].astype(int),
-        )
-    )
+    # Community sizes are structural.  Derive them directly from the
+    # label-free Louvain partition rather than from the descriptive summary,
+    # which also contains full-dataset label counts and purity values.
+    community_size_map = Counter(int(community_id) for community_id in partition.values())
 
     train_web_count_by_community: Counter[int] = Counter()
     train_ml_count_by_community: Counter[int] = Counter()

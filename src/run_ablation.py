@@ -84,6 +84,9 @@ def run_ablation_experiments(
             random_state=int(random_state),
         )
         nodes_for_features = list(train_nodes) + list(test_nodes)
+        train_labels_dict = {
+            int(node): int(labels_dict[int(node)]) for node in train_nodes
+        }
 
         # --- Content Only ---
         X_train_content = build_content_matrix(features_dict, n_features, train_nodes)
@@ -99,18 +102,17 @@ def run_ablation_experiments(
         # --- Network Only (Graph + Community, identical to the existing model) ---
         graph_features_df = extract_graph_neighbor_features(
             G=G,
-            labels_dict=labels_dict,
+            labels_dict=train_labels_dict,
             train_nodes=train_nodes,
             nodes=nodes_for_features,
         ).drop_duplicates(subset=["node_id"])
 
         community_features_df = add_community_features(
             G=G,
-            labels_dict=labels_dict,
+            labels_dict=train_labels_dict,
             train_nodes=train_nodes,
             nodes=nodes_for_features,
             partition=partition,
-            community_summary_df=community_summary_df,
         ).drop_duplicates(subset=["node_id"])
 
         combined_features_df = _merge_node_feature_frames(graph_features_df, community_features_df)

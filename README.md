@@ -2,85 +2,104 @@
 
 Final project for the Graph Algorithms course.
 
-This project studies an undirected network of 37,700 GitHub developers and 289,003 mutual-follow edges. It asks how much information about developer field, Web or Machine Learning, is present in neighborhoods, centrality, communities, graph embeddings, and sparse content features.
+This project studies an undirected network of 37,700 GitHub developers and 289,003 mutual-follow edges. It asks how much information about developer field—Web or Machine Learning—is present in neighborhoods, centrality, communities, graph embeddings, and sparse content features.
 
-The main analysis uses course methods. Optional Label Propagation, graph-neural-network, and content-subfield experiments remain isolated under `extensions/` and are not mixed into the main result tables.
+The main analysis uses course methods. Optional Label Propagation, GCN, GraphSAGE, and content-subfield experiments remain isolated under `extensions/`; they are not executed by the numbered notebook pipeline and do not contribute to the reported results.
 
 ## Research Questions
 
-1. **RQ1 - Node classification:** Can network neighborhoods, centrality, communities, and learned graph representations classify developer field without using test labels?
-2. **RQ2 - Network versus content:** How much predictive value comes from network structure compared with content features, and what does their combination add?
-3. **RQ3 - Static edge reconstruction:** Can randomly hidden mutual-follow edges be reconstructed, and are same-field edges easier to reconstruct than cross-field edges?
-4. **RQ4 - Null models:** Are observed homophily and modularity unusual compared with label shuffling and degree-preserving graphs?
+1. **RQ1 — Node classification:** Can network neighborhoods, centrality, communities, and learned graph representations classify developer field without using test labels?
+2. **RQ2 — Network versus content:** How much predictive value comes from network structure compared with content features, and what does their combination add?
+3. **RQ3 — Static edge reconstruction:** Can randomly hidden mutual-follow edges be reconstructed, and are same-field edges easier to reconstruct than cross-field edges?
+4. **RQ4 — Null models:** Are observed homophily and modularity unusual compared with label shuffling and degree-preserving graphs?
 
 RQ3 reconstructs hidden edges from one static snapshot. It is not a time-based forecast and does not identify a causal link-formation mechanism.
 
-## Data
+## Data Access
 
-The project uses the June 2019 MUSAE GitHub Social Network:
+The repository includes the June 2019 MUSAE GitHub Social Network inputs under `data/`:
 
-- `data/musae_git_edges.csv`: 289,003 undirected mutual-follow edges.
-- `data/musae_git_target.csv`: one binary target for each of 37,700 nodes.
-- `data/musae_git_features.json`: sparse content features for the network/content comparison.
+- `musae_git_edges.csv`: 289,003 undirected mutual-follow edges.
+- `musae_git_target.csv`: one binary target for each of 37,700 nodes.
+- `musae_git_features.json`: sparse content features for all 37,700 nodes.
 
-The graph used in the notebooks has one connected component, no self-loops, no duplicate undirected edges, and complete target coverage.
+No download step is required. The loaders reject missing or non-numeric IDs, self-loops, duplicate undirected edges, duplicate target IDs, invalid labels, and graph nodes without labels. The validated graph has one connected component and complete target coverage.
+
+The content file defines 4,005 sparse binary dimensions derived from developer profile and activity information such as starred repositories, location, employer, and email-related fields. These are attributes of developers, unlike graph features such as degree, PageRank, clustering, labeled-neighbor ratios, and community membership. The released data use encoded indices without a complete feature-name mapping, so individual indices may not have direct human-readable meanings.
 
 ## Methods and Main Findings
 
-- Graph and community features classify developer field well; the strongest handcrafted model is logistic regression with graph and community features, with mean ROC-AUC near 0.869.
-- Content features alone reach ROC-AUC near 0.889, while the hybrid network-content model reaches about 0.898.
+- Graph and community features classify developer field well; the strongest handcrafted model has mean ROC-AUC near 0.869.
+- Content features alone reach ROC-AUC near 0.889, while the network–content hybrid reaches about 0.898.
 - DeepWalk and Node2Vec are strong learned representations; combining them with handcrafted structure reaches ROC-AUC near 0.900.
 - Preferential Attachment is the strongest static edge-reconstruction method, with mean ROC-AUC near 0.924.
-- Observed homophily is about 84.5%. Both homophily and Louvain modularity are unusually high under the tested null models.
-- Classification errors are additionally analyzed by node degree and community purity, showing where structural evidence is weakest.
+- Observed homophily is about 84.5%, and observed Louvain modularity is about 0.453. Both lie above the tested null distributions, subject to the finite-simulation limitation below.
+- Classification errors are analyzed by node degree and community purity. Community purity is used only for error analysis, never as a predictive feature.
 
-These findings are descriptive and predictive, not causal.
+These findings support a strong relationship between developer field and network structure in this dataset. They are descriptive and predictive, not causal.
 
-## Notebook Series
+## Notebook Order
 
 Run exactly these nine notebooks in order:
 
 | Order | Notebook | Purpose |
 |---:|---|---|
-| 01 | `01_environment_and_reproducibility.ipynb` | Environment and input inventory |
-| 02 | `02_data_loading_and_preparation.ipynb` | Validated graph construction |
+| 01 | `01_environment_and_reproducibility.ipynb` | Environment, research questions, and input inventory |
+| 02 | `02_data_loading_and_preparation.ipynb` | Strict validation and graph construction |
 | 03 | `03_cleaning_eda_and_graph_statistics.ipynb` | Data quality, EDA, and graph statistics |
-| 04 | `04_communities_and_problem_definition.ipynb` | Louvain communities and leakage-safe features |
-| 05 | `05_node_classification_algorithms.ipynb` | Classification, threshold tuning, and subgroup errors |
-| 06 | `06_embeddings_content_and_ablation.ipynb` | DeepWalk, Node2Vec, content, and ablation |
+| 04 | `04_communities_and_problem_definition.ipynb` | Louvain communities and leakage-safe community features |
+| 05 | `05_node_classification_algorithms.ipynb` | Classification, validation-only threshold tuning, and error analysis |
+| 06 | `06_embeddings_content_and_ablation.ipynb` | DeepWalk, Node2Vec, content features, and ablation |
 | 07 | `07_link_reconstruction_experiments.ipynb` | Connected static edge reconstruction |
-| 08 | `08_null_models_results_and_research_answers.ipynb` | Null models and consolidated answers |
-| 09 | `09_extensions_and_conclusions.ipynb` | Optional extensions and final synthesis |
+| 08 | `08_null_models_results_and_research_answers.ipynb` | Null models and consolidated research answers |
+| 09 | `09_extensions_and_conclusions.ipynb` | Extension boundary and final synthesis |
 
-## Execution
+Every notebook includes its own imports, project-root discovery, and data loading. It can start in a fresh kernel without variables or imports from another notebook. Running in order remains recommended because it presents the research argument in sequence and regenerates all artifacts predictably.
+
+## Installation and Reproducible Execution
 
 From the repository root in Windows PowerShell:
 
 ```powershell
 py -3.11 -m venv .venv
-
-# Activate the new environment in your shell, then run the remaining commands
-# with that environment's python executable.
+Set-ExecutionPolicy -Scope Process Bypass
+& .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 python -m pip install -r .\requirements.txt
-python -m ipykernel install --user --name github-social-network --display-name "GitHub Social Network (.venv)"
 $env:PYTHONHASHSEED = "0"
 
-$notebooks = Get-ChildItem .\notebooks -Filter "[0-9][0-9]_*.ipynb" | Sort-Object Name
+$notebooks = Get-ChildItem .\notebooks -Filter "*.ipynb" |
+    Where-Object { $_.Name -match '^0[1-9]_' } |
+    Sort-Object Name
+
 foreach ($notebook in $notebooks) {
-    python -m nbconvert --to notebook --execute --inplace --ExecutePreprocessor.kernel_name=github-social-network --ExecutePreprocessor.timeout=-1 $notebook.FullName
+    python -m nbconvert --to notebook --execute --inplace `
+        --ExecutePreprocessor.kernel_name=python3 `
+        --ExecutePreprocessor.timeout=-1 `
+        $notebook.FullName
 }
 ```
 
-The notebooks create temporary experiment artifacts under `outputs/` while they run. Those files are reproducible from the notebooks and are not part of the submitted repository.
+Each `nbconvert` call starts a new kernel. Running the loop therefore checks both clean-kernel execution and the complete 01–09 order. The notebooks save final cell outputs in place and regenerate temporary tables, figures, and embeddings under `outputs/`. Those artifacts are reproducible and are excluded from the submitted repository.
 
-## Submission Structure
+## Leakage Prevention
+
+- Train/test splits are stratified and fixed by seed.
+- Scaling, one-hot column layout, logistic regression, and other fitted preprocessing are learned from training data only.
+- Probability thresholds are selected on an inner validation split only; test labels are used only for final metrics.
+- Neighbor-label and community-label features receive dictionaries containing training labels only.
+- Louvain membership, community size, and unsupervised node embeddings use graph structure without labels.
+- Full-label community purity is used only after prediction for error analysis; it is never a model input.
+- In every link-reconstruction split, test edges are removed first. Louvain, DeepWalk, and Node2Vec are then retrained on that split's training graph only.
+
+## Project Structure
 
 ```text
 data/              Original MUSAE inputs
-notebooks/         Exactly the executed notebooks 01-09
-src/               Research implementation imported by the notebooks
-extensions/        Optional exploratory work outside the core claims
-requirements.txt   Python dependencies
+notebooks/         Executed notebooks 01–09
+src/               Reusable research implementation
+extensions/        Optional exploratory methods outside the core results
+requirements.txt   Pinned Python dependencies
 README.md          Project overview and execution guide
 .gitignore         Local and generated-file exclusions
 ```
@@ -91,6 +110,8 @@ README.md          Project overview and execution guide
 - The binary target may be noisy and omits finer professional identities.
 - Node classification is transductive: graph structure is known during evaluation.
 - Betweenness is approximated because the graph is large.
-- Embedding hyperparameters use a fixed budget rather than exhaustive search.
+- Embedding hyperparameters use a fixed budget rather than exhaustive tuning.
 - Hidden-edge reconstruction is static rather than temporal.
-- Null models isolate selected properties and do not model every network-formation process.
+- Random non-edge sampling may make reconstruction easier and may favor degree-based methods such as Preferential Attachment. Degree-matched or distance-two negatives would provide a harder evaluation.
+- The degree-preserving null uses 20 rewired graphs because rerunning both swaps and Louvain 99 times is not practical for the complete reproducibility run. With 20 samples, the smallest empirical p-value is `1/21 = 0.0476`, so the rewiring experiment has coarse p-value resolution.
+- Null models isolate selected properties and do not reproduce every network-formation process.

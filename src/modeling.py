@@ -453,23 +453,25 @@ def run_repeated_threshold_tuning(
         val_nodes = np.asarray(val_nodes, dtype=np.int64)
         y_train_inner = np.asarray(y_train_inner, dtype=np.int64)
         y_val = np.asarray(y_val, dtype=np.int64)
+        train_inner_labels = {
+            int(node): int(labels_dict[int(node)]) for node in train_inner_nodes
+        }
 
         nodes_for_features = list(train_inner_nodes) + list(val_nodes) + list(test_nodes)
 
         graph_features_df = extract_graph_neighbor_features(
             G=G,
-            labels_dict=labels_dict,
+            labels_dict=train_inner_labels,
             train_nodes=train_inner_nodes,
             nodes=nodes_for_features,
         ).drop_duplicates(subset=["node_id"])
 
         community_features_df = add_community_features(
             G=G,
-            labels_dict=labels_dict,
+            labels_dict=train_inner_labels,
             train_nodes=train_inner_nodes,
             nodes=nodes_for_features,
             partition=partition,
-            community_summary_df=community_summary_df,
         ).drop_duplicates(subset=["node_id"])
 
         combined_features_df = _merge_node_feature_frames(graph_features_df, community_features_df)
@@ -644,6 +646,9 @@ def run_repeated_experiments(
         )
         default_label = int(pd.Series(y_train).mode().iloc[0])
         nodes_for_features = list(train_nodes) + list(test_nodes)
+        train_labels = {
+            int(node): int(labels_dict[int(node)]) for node in train_nodes
+        }
 
         # 1) Majority baseline
         y_pred_majority, y_score_majority = majority_class_baseline(y_train, y_test)
@@ -652,7 +657,7 @@ def run_repeated_experiments(
         # 2) Neighbor majority
         y_pred_neighbor, y_score_neighbor = neighbor_majority_classifier(
             G=G,
-            labels_dict=labels_dict,
+            labels_dict=train_labels,
             train_nodes=train_nodes,
             test_nodes=test_nodes,
             default_label=default_label,
@@ -662,7 +667,7 @@ def run_repeated_experiments(
         # 3) Logistic regression on graph-only features
         graph_features_df = extract_graph_neighbor_features(
             G=G,
-            labels_dict=labels_dict,
+            labels_dict=train_labels,
             train_nodes=train_nodes,
             nodes=nodes_for_features,
         ).drop_duplicates(subset=["node_id"])
@@ -681,11 +686,10 @@ def run_repeated_experiments(
         # 4) Logistic regression on graph + community features
         community_features_df = add_community_features(
             G=G,
-            labels_dict=labels_dict,
+            labels_dict=train_labels,
             train_nodes=train_nodes,
             nodes=nodes_for_features,
             partition=partition,
-            community_summary_df=community_summary_df,
         ).drop_duplicates(subset=["node_id"])
 
         combined_features_df = _merge_node_feature_frames(graph_features_df, community_features_df)

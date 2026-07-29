@@ -144,16 +144,18 @@ def _evaluate(
             labels_df, test_size=0.30, random_state=int(seed)
         )
         feature_nodes = list(train_nodes) + list(test_nodes)
+        train_labels = {
+            int(node): int(labels_dict[int(node)]) for node in train_nodes
+        }
         graph_features = extract_graph_neighbor_features(
-            G, labels_dict, train_nodes, feature_nodes
+            G, train_labels, train_nodes, feature_nodes
         ).drop_duplicates("node_id")
         community_features = add_community_features(
             G,
-            labels_dict,
+            train_labels,
             train_nodes,
             feature_nodes,
             partition,
-            community_df,
         ).drop_duplicates("node_id")
         handcrafted = _merge_node_feature_frames(
             graph_features, community_features
