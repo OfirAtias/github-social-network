@@ -4,7 +4,7 @@ Final project for the Graph Algorithms course.
 
 This project studies an undirected network of 37,700 GitHub developers and 289,003 mutual-follow edges. It asks how much information about developer field—Web or Machine Learning—is present in neighborhoods, centrality, communities, graph embeddings, and sparse content features.
 
-The main analysis uses course methods. Optional Label Propagation, GCN, GraphSAGE, and content-subfield experiments remain isolated under `extensions/`; they are not executed by the numbered notebook pipeline and do not contribute to the reported results.
+The main analysis uses course methods. Optional Label Propagation, GCN, GraphSAGE, and content-subfield experiments remain isolated under `extensions/`; notebook 09 executes and reports them separately, without changing the core results in notebooks 01-08 or the final report.
 
 ## Research Questions
 
@@ -52,7 +52,7 @@ Run exactly these nine notebooks in order:
 | 06 | `06_embeddings_content_and_ablation.ipynb` | DeepWalk, Node2Vec, content features, and ablation |
 | 07 | `07_link_reconstruction_experiments.ipynb` | Connected static edge reconstruction |
 | 08 | `08_null_models_results_and_research_answers.ipynb` | Null models and consolidated research answers |
-| 09 | `09_extensions_and_conclusions.ipynb` | Extension boundary and final synthesis |
+| 09 | `09_extensions_and_conclusions.ipynb` | Executed optional extensions and final synthesis |
 
 Every notebook includes its own imports, project-root discovery, and data loading. It can start in a fresh kernel without variables or imports from another notebook. Running in order remains recommended because it presents the research argument in sequence and regenerates all artifacts predictably.
 
@@ -98,7 +98,7 @@ Each `nbconvert` call starts a new kernel. Running the loop therefore checks bot
 data/              Original MUSAE inputs
 notebooks/         Executed notebooks 01–09
 src/               Reusable research implementation
-extensions/        Optional exploratory methods outside the core results
+extensions/        Executed optional methods, kept separate from core results
 requirements.txt   Pinned Python dependencies
 README.md          Project overview and execution guide
 .gitignore         Local and generated-file exclusions

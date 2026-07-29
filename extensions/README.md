@@ -1,13 +1,18 @@
-# Optional extensions
+# Executed optional extensions
 
-This directory preserves exploratory implementations that are **not** part of
-the main course-method analysis, its reported result tables, or its grading
-claims.
+These methods remain separate from the core findings in notebooks 01-08, but
+they are real, reproducible experiments executed and reported by notebook 09.
 
-- `gnn.py` and `run_gnn.py`: GCN and GraphSAGE experiments.
-- `run_subfields.py`: TruncatedSVD/K-means subfield exploration with
-  Silhouette, NMI, and ARI evaluation.
-- `label_propagation.py`: a label-propagation classifier kept as optional
-  exploratory work.
+- `label_propagation.py`: clamped propagation with explicit hidden labels.
+- `gnn.py`: full-batch GCN and mean-aggregating GraphSAGE in PyTorch.
+- `run_gnn.py`: the three classification extensions on the same five fixed
+  splits, with inner validation, final refitting, leakage audits, and direct
+  comparison to the strongest complementary core baselines.
+- `run_subfields.py`: 64-component TruncatedSVD and K-means clustering across
+  `k=3..10`, with silhouette, five-seed stability, cluster sizes, and cautious
+  post-hoc alignment checks.
 
-The main notebooks do not import or execute anything in this directory.
+All extension artifacts are written below `outputs/extensions/`. GCN and
+GraphSAGE are evaluated **transductively**: the full graph and label-free node
+covariates are visible, while only outer-training labels supervise the final
+fit. No inductive performance is claimed.

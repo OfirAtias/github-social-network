@@ -17,3 +17,4 @@ pypdf==5.1.0
 python-bidi==0.6.11
 reportlab==5.0.0
 pytest==8.3.4
+torch==2.5.1

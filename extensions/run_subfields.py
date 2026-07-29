@@ -1,35 +1,28 @@
+"""Reproducible content-subfield clustering on the MUSAE feature matrix.
+
+Sparse binary content is reduced with TruncatedSVD, L2-normalized, and then
+clustered with K-means.  Candidate cluster counts are evaluated without using
+the supplied binary target: silhouette uses a fixed sample, while stability is
+the pairwise adjusted Rand index across five independent fixed seeds.
 """
-Extension only: this exploratory subfield analysis is excluded because its
-central methods are outside the selected course-only scope.
 
-Content-based sub-field discovery.
+from __future__ import annotations
 
-The binary Web/ML target hides the fact that developers span many
-sub-specializations. This script clusters the MUSAE content features
-(starred repos / employer / location) to discover data-driven "sub-fields",
-then measures how well the network's Louvain communities align with them.
-
-Questions answered:
-1. Do content clusters split the binary labels into finer sub-fields?
-2. Do network communities align more with content clusters than with the
-   binary Web/ML label? (NMI / ARI)
-
-Outputs:
-    outputs/tables/subfield_cluster_summary.csv
-    outputs/tables/subfield_alignment_scores.csv
-    outputs/figures/subfield_ml_share.png
-    outputs/figures/subfield_community_overlap.png
-"""
-from pathlib import Path
-
+import itertools
+import json
+import platform
 import sys
+import time
+from pathlib import Path
 
 import matplotlib
 
-matplotlib.use("Agg")
+if "ipykernel" not in sys.modules:
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import sklearn
 from sklearn.cluster import KMeans
 from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics import (
@@ -42,7 +35,6 @@ from sklearn.preprocessing import normalize
 EXTENSIONS_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = EXTENSIONS_DIR.parent
 sys.path.insert(0, str(PROJECT_DIR / "src"))
-sys.path.insert(0, str(EXTENSIONS_DIR))
 
 from community_analysis import detect_louvain_communities
 from content_features import build_content_matrix, load_content_features
@@ -50,140 +42,261 @@ from data_loader import load_dataset
 
 
 SVD_COMPONENTS = 64
-K_CANDIDATES = range(4, 11)
-SILHOUETTE_SAMPLE = 5000
-RANDOM_STATE = 42
+K_CANDIDATES = tuple(range(3, 11))
+SILHOUETTE_SAMPLE = 5_000
+SEEDS = (42, 7, 21, 84, 123)
+KMEANS_N_INIT = 10
+PROJECTION_SAMPLE = 8_000
 
 
-def choose_k(embedding: np.ndarray) -> tuple[int, pd.DataFrame]:
-    """Pick the number of clusters by silhouette score over a candidate range."""
-    rng = np.random.default_rng(RANDOM_STATE)
-    sample_idx = rng.choice(embedding.shape[0], size=min(SILHOUETTE_SAMPLE, embedding.shape[0]), replace=False)
+def evaluate_cluster_counts(
+    embedding: np.ndarray,
+) -> tuple[int, pd.DataFrame, pd.DataFrame, dict[int, np.ndarray]]:
+    """Evaluate silhouette and cross-seed stability for every candidate k."""
+    rng = np.random.default_rng(SEEDS[0])
+    sample_idx = np.sort(
+        rng.choice(
+            embedding.shape[0],
+            size=min(SILHOUETTE_SAMPLE, embedding.shape[0]),
+            replace=False,
+        )
+    )
+    diagnostic_rows: list[dict] = []
+    pair_rows: list[dict] = []
+    reference_assignments: dict[int, np.ndarray] = {}
 
-    rows = []
     for k in K_CANDIDATES:
-        kmeans = KMeans(n_clusters=k, random_state=RANDOM_STATE, n_init=10)
-        cluster_labels = kmeans.fit_predict(embedding)
-        score = silhouette_score(embedding[sample_idx], cluster_labels[sample_idx])
-        rows.append({"k": k, "silhouette": float(score)})
-        print(f"  k={k}: silhouette={score:.4f}")
+        assignments: dict[int, np.ndarray] = {}
+        for seed in SEEDS:
+            assignments[seed] = KMeans(
+                n_clusters=k,
+                n_init=KMEANS_N_INIT,
+                max_iter=300,
+                algorithm="lloyd",
+                random_state=seed,
+            ).fit_predict(embedding)
+        reference = assignments[SEEDS[0]]
+        reference_assignments[k] = reference
+        silhouette = silhouette_score(
+            embedding[sample_idx], reference[sample_idx], metric="euclidean"
+        )
+        pair_values = []
+        for first, second in itertools.combinations(SEEDS, 2):
+            stability = adjusted_rand_score(assignments[first], assignments[second])
+            pair_values.append(float(stability))
+            pair_rows.append(
+                {"k": k, "seed_a": first, "seed_b": second, "adjusted_rand": stability}
+            )
+        cluster_sizes = np.bincount(reference, minlength=k)
+        diagnostic_rows.append(
+            {
+                "k": k,
+                "silhouette_fixed_sample": float(silhouette),
+                "stability_ari_mean": float(np.mean(pair_values)),
+                "stability_ari_std": float(np.std(pair_values, ddof=1)),
+                "smallest_cluster": int(cluster_sizes.min()),
+                "largest_cluster": int(cluster_sizes.max()),
+            }
+        )
+        print(
+            f"  k={k}: silhouette={silhouette:.4f}, "
+            f"stability ARI={np.mean(pair_values):.4f} +/- {np.std(pair_values, ddof=1):.4f}"
+        )
 
-    scores_df = pd.DataFrame(rows)
-    best_k = int(scores_df.loc[scores_df["silhouette"].idxmax(), "k"])
-    return best_k, scores_df
+    diagnostics = pd.DataFrame(diagnostic_rows)
+    pairs = pd.DataFrame(pair_rows)
+    # Selection is target-free and predeclared: maximize reference silhouette.
+    best_k = int(
+        diagnostics.sort_values(
+            ["silhouette_fixed_sample", "stability_ari_mean", "k"],
+            ascending=[False, False, True],
+        ).iloc[0]["k"]
+    )
+    return best_k, diagnostics, pairs, reference_assignments
 
 
-def main() -> None:
+def _plot_diagnostics(diagnostics: pd.DataFrame, output_path: Path) -> None:
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
+    axes[0].plot(
+        diagnostics["k"], diagnostics["silhouette_fixed_sample"], marker="o", color="#4E79A7"
+    )
+    axes[0].set_title("Separation: silhouette on fixed 5,000-node sample")
+    axes[0].set_xlabel("Number of clusters (k)")
+    axes[0].set_ylabel("Silhouette")
+    axes[1].errorbar(
+        diagnostics["k"],
+        diagnostics["stability_ari_mean"],
+        yerr=diagnostics["stability_ari_std"],
+        marker="o",
+        capsize=4,
+        color="#59A14F",
+    )
+    axes[1].set_title("Stability across five K-means seeds")
+    axes[1].set_xlabel("Number of clusters (k)")
+    axes[1].set_ylabel("Pairwise adjusted Rand index")
+    for axis in axes:
+        axis.set_xticks(diagnostics["k"])
+        axis.grid(alpha=0.25)
+    fig.suptitle("Content-subfield cluster-count diagnostics")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_cluster_summary(summary: pd.DataFrame, global_ml_share: float, output_path: Path) -> None:
+    ordered = summary.sort_values("cluster")
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.8))
+    axes[0].bar(ordered["cluster"].astype(str), ordered["size"], color="#4E79A7")
+    axes[0].set_title("Selected-clustering sizes")
+    axes[0].set_xlabel("Anonymous content cluster")
+    axes[0].set_ylabel("Developers")
+    axes[0].grid(axis="y", alpha=0.25)
+    axes[1].bar(ordered["cluster"].astype(str), ordered["ml_share"], color="#F28E2B")
+    axes[1].axhline(
+        global_ml_share,
+        color="black",
+        linestyle="--",
+        linewidth=1.2,
+        label=f"Global ML share ({global_ml_share:.3f})",
+    )
+    axes[1].set_title("Post-hoc binary-label composition")
+    axes[1].set_xlabel("Anonymous content cluster")
+    axes[1].set_ylabel("ML-label share")
+    axes[1].set_ylim(0, 1)
+    axes[1].legend()
+    axes[1].grid(axis="y", alpha=0.25)
+    fig.suptitle("Selected content clustering (feature indices have no semantic dictionary)")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+
+def main() -> dict[str, Path]:
+    """Run the complete subfield experiment and save tables/figures."""
+    started = time.perf_counter()
     data_dir = PROJECT_DIR / "data"
-    tables_dir = PROJECT_DIR / "outputs" / "tables"
-    figures_dir = PROJECT_DIR / "outputs" / "figures"
-    tables_dir.mkdir(parents=True, exist_ok=True)
-    figures_dir.mkdir(parents=True, exist_ok=True)
+    output_root = PROJECT_DIR / "outputs" / "extensions"
+    tables_dir = output_root / "tables"
+    figures_dir = output_root / "figures"
+    for directory in (tables_dir, figures_dir):
+        directory.mkdir(parents=True, exist_ok=True)
 
-    G, _, labels_df, labels_dict = load_dataset(data_dir)
-    features_dict, n_features = load_content_features(data_dir / "musae_git_features.json")
-
+    graph, _, labels_df, labels_dict = load_dataset(data_dir)
     nodes = labels_df["id"].to_numpy(dtype=np.int64)
-    labels = labels_df["label"].to_numpy(dtype=np.int64)
-
-    # --- Content embedding: sparse binary -> dense low-rank representation ---
-    content_matrix = build_content_matrix(features_dict, n_features, nodes)
-    svd = TruncatedSVD(n_components=SVD_COMPONENTS, random_state=RANDOM_STATE)
-    embedding = svd.fit_transform(content_matrix)
-    embedding = normalize(embedding)
-    print(f"SVD explained variance: {svd.explained_variance_ratio_.sum():.4f}")
-
-    # --- Cluster into sub-fields ---
-    print("Choosing k by silhouette:")
-    best_k, k_scores_df = choose_k(embedding)
-    print(f"Selected k={best_k}")
-
-    kmeans = KMeans(n_clusters=best_k, random_state=RANDOM_STATE, n_init=10)
-    clusters = kmeans.fit_predict(embedding)
-
-    # --- Per-cluster label composition ---
-    cluster_df = pd.DataFrame({"node_id": nodes, "cluster": clusters, "label": labels})
-    summary_df = (
-        cluster_df.groupby("cluster")
-        .agg(size=("node_id", "count"), ml_count=("label", "sum"))
-        .reset_index()
+    binary_labels = labels_df["label"].to_numpy(dtype=np.int64)
+    features_dict, n_features = load_content_features(
+        data_dir / "musae_git_features.json"
     )
-    summary_df["ml_share"] = summary_df["ml_count"] / summary_df["size"]
-    summary_df = summary_df.sort_values("ml_share", ascending=False).reset_index(drop=True)
-    summary_df.to_csv(tables_dir / "subfield_cluster_summary.csv", index=False)
-    print(summary_df.to_string(index=False))
+    content = build_content_matrix(features_dict, n_features, nodes)
 
-    # --- Alignment: clusters vs labels vs Louvain communities ---
-    partition, _ = detect_louvain_communities(G, random_state=RANDOM_STATE)
-    communities = np.asarray([partition.get(int(node), -1) for node in nodes])
-
-    alignment_rows = [
-        {
-            "comparison": "content_clusters_vs_binary_labels",
-            "nmi": float(normalized_mutual_info_score(labels, clusters)),
-            "ari": float(adjusted_rand_score(labels, clusters)),
-        },
-        {
-            "comparison": "louvain_communities_vs_binary_labels",
-            "nmi": float(normalized_mutual_info_score(labels, communities)),
-            "ari": float(adjusted_rand_score(labels, communities)),
-        },
-        {
-            "comparison": "louvain_communities_vs_content_clusters",
-            "nmi": float(normalized_mutual_info_score(clusters, communities)),
-            "ari": float(adjusted_rand_score(clusters, communities)),
-        },
-    ]
-    alignment_df = pd.DataFrame(alignment_rows)
-    alignment_df.to_csv(tables_dir / "subfield_alignment_scores.csv", index=False)
-    print(alignment_df.to_string(index=False))
-
-    # --- Figure 1: ML share per sub-field cluster ---
-    fig, ax1 = plt.subplots(figsize=(11, 5))
-    x = np.arange(len(summary_df))
-    colors = plt.cm.coolwarm(summary_df["ml_share"].to_numpy())
-    ax1.bar(x, summary_df["ml_share"], color=colors)
-    ax1.axhline(labels.mean(), color="black", linestyle="--", linewidth=1,
-                label=f"Global ML share ({labels.mean():.2f})")
-    for xi, (share, size) in enumerate(zip(summary_df["ml_share"], summary_df["size"])):
-        ax1.text(xi, share + 0.015, f"n={size:,}", ha="center", fontsize=8)
-    ax1.set_xticks(x)
-    ax1.set_xticklabels([f"C{c}" for c in summary_df["cluster"]])
-    ax1.set_xlabel("Content cluster (sorted by ML share)")
-    ax1.set_ylabel("ML share")
-    ax1.set_title(f"Content-Based Sub-Fields (k={best_k}): ML Share per Cluster")
-    ax1.legend()
-    ax1.grid(axis="y", alpha=0.3)
-    fig.tight_layout()
-    fig.savefig(figures_dir / "subfield_ml_share.png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
-
-    # --- Figure 2: overlap heatmap, content clusters x largest communities ---
-    top_communities = (
-        pd.Series(communities).value_counts().head(10).index.to_numpy()
+    svd = TruncatedSVD(n_components=SVD_COMPONENTS, random_state=SEEDS[0])
+    embedding = normalize(svd.fit_transform(content)).astype(np.float32)
+    explained_variance = float(svd.explained_variance_ratio_.sum())
+    print(
+        f"Content matrix {content.shape} with {content.nnz:,} nonzeros; "
+        f"{SVD_COMPONENTS}-component variance={explained_variance:.4f}"
     )
-    overlap = np.zeros((best_k, len(top_communities)))
-    for ci in range(best_k):
-        in_cluster = communities[clusters == ci]
-        for cj, comm in enumerate(top_communities):
-            overlap[ci, cj] = np.mean(in_cluster == comm) if len(in_cluster) else 0.0
+    best_k, diagnostics, stability_pairs, assignments = evaluate_cluster_counts(embedding)
+    clusters = assignments[best_k]
+    print(f"Selected k={best_k} by target-free silhouette maximization.")
 
-    fig, ax2 = plt.subplots(figsize=(10, 6))
-    im = ax2.imshow(overlap, cmap="viridis", aspect="auto")
-    ax2.set_xticks(np.arange(len(top_communities)))
-    ax2.set_xticklabels([f"Comm {c}" for c in top_communities], rotation=45, ha="right")
-    ax2.set_yticks(np.arange(best_k))
-    ax2.set_yticklabels([f"Cluster {c}" for c in range(best_k)])
-    ax2.set_xlabel("Louvain community (top 10 by size)")
-    ax2.set_ylabel("Content cluster")
-    ax2.set_title("Where Do Content Sub-Fields Live in the Network?\n(row = share of cluster members in each community)")
-    fig.colorbar(im, ax=ax2, label="Share of cluster")
-    fig.tight_layout()
-    fig.savefig(figures_dir / "subfield_community_overlap.png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    assignments_df = pd.DataFrame(
+        {"node_id": nodes, "content_cluster": clusters, "binary_label": binary_labels}
+    )
+    projection_rng = np.random.default_rng(SEEDS[0])
+    projection_idx = np.sort(
+        projection_rng.choice(
+            len(nodes), size=min(PROJECTION_SAMPLE, len(nodes)), replace=False
+        )
+    )
+    projection_df = pd.DataFrame(
+        {
+            "node_id": nodes[projection_idx],
+            "svd_component_1": embedding[projection_idx, 0],
+            "svd_component_2": embedding[projection_idx, 1],
+            "content_cluster": clusters[projection_idx],
+        }
+    )
+    cluster_summary = (
+        assignments_df.groupby("content_cluster", as_index=False)
+        .agg(size=("node_id", "size"), ml_count=("binary_label", "sum"))
+        .rename(columns={"content_cluster": "cluster"})
+    )
+    cluster_summary["share_of_nodes"] = cluster_summary["size"] / len(assignments_df)
+    cluster_summary["ml_share"] = cluster_summary["ml_count"] / cluster_summary["size"]
 
-    k_scores_df.to_csv(tables_dir / "subfield_k_selection.csv", index=False)
-    print("Saved tables and figures.")
+    partition, modularity = detect_louvain_communities(graph, random_state=SEEDS[0])
+    communities = np.asarray([partition[int(node)] for node in nodes], dtype=np.int64)
+    alignment = pd.DataFrame(
+        [
+            {
+                "comparison": "content_clusters_vs_binary_labels",
+                "nmi": normalized_mutual_info_score(binary_labels, clusters),
+                "ari": adjusted_rand_score(binary_labels, clusters),
+            },
+            {
+                "comparison": "content_clusters_vs_louvain_communities",
+                "nmi": normalized_mutual_info_score(communities, clusters),
+                "ari": adjusted_rand_score(communities, clusters),
+            },
+            {
+                "comparison": "louvain_communities_vs_binary_labels",
+                "nmi": normalized_mutual_info_score(binary_labels, communities),
+                "ari": adjusted_rand_score(binary_labels, communities),
+            },
+        ]
+    )
+
+    paths = {
+        "diagnostics": tables_dir / "subfield_k_diagnostics.csv",
+        "stability": tables_dir / "subfield_stability_pairs.csv",
+        "sizes": tables_dir / "subfield_cluster_sizes.csv",
+        "assignments": tables_dir / "subfield_assignments.csv",
+        "alignment": tables_dir / "subfield_alignment.csv",
+        "projection": tables_dir / "subfield_projection_sample.csv",
+        "diagnostics_figure": figures_dir / "subfield_k_diagnostics.png",
+        "sizes_figure": figures_dir / "subfield_cluster_sizes.png",
+    }
+    diagnostics.to_csv(paths["diagnostics"], index=False)
+    stability_pairs.to_csv(paths["stability"], index=False)
+    cluster_summary.to_csv(paths["sizes"], index=False)
+    assignments_df.to_csv(paths["assignments"], index=False)
+    alignment.to_csv(paths["alignment"], index=False)
+    projection_df.to_csv(paths["projection"], index=False)
+    _plot_diagnostics(diagnostics, paths["diagnostics_figure"])
+    _plot_cluster_summary(cluster_summary, float(binary_labels.mean()), paths["sizes_figure"])
+
+    total_seconds = time.perf_counter() - started
+    metadata = {
+        "experiment": "content_subfield_clustering",
+        "nodes": int(content.shape[0]),
+        "raw_content_dimensions": int(content.shape[1]),
+        "nonzero_entries": int(content.nnz),
+        "svd_components": SVD_COMPONENTS,
+        "svd_explained_variance": explained_variance,
+        "l2_normalized": True,
+        "candidate_k": list(K_CANDIDATES),
+        "selection_rule": "maximum silhouette on fixed seed-42 sample; stability breaks ties",
+        "silhouette_sample": min(SILHOUETTE_SAMPLE, embedding.shape[0]),
+        "stability_seeds": list(SEEDS),
+        "kmeans_n_init": KMEANS_N_INIT,
+        "selected_k": best_k,
+        "projection_sample": int(len(projection_df)),
+        "louvain_modularity": float(modularity),
+        "uses_binary_labels_for_selection": False,
+        "total_seconds": total_seconds,
+        "python": platform.python_version(),
+        "numpy": np.__version__,
+        "pandas": pd.__version__,
+        "scikit_learn": sklearn.__version__,
+    }
+    metadata_path = tables_dir / "subfield_run_metadata.json"
+    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    paths["metadata"] = metadata_path
+    print(f"Subfield experiment completed in {total_seconds:.1f}s")
+    print(cluster_summary.to_string(index=False))
+    print(alignment.to_string(index=False))
+    return paths
 
 
 if __name__ == "__main__":
