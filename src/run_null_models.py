@@ -137,12 +137,12 @@ def main() -> None:
     for i in range(N_REWIRES):
         t0 = time.time()
         G_rewired = G.copy()
-        nx.double_edge_swap(
+        nx.connected_double_edge_swap(
             G_rewired,
             nswap=n_edges * N_SWAPS_PER_EDGE,
-            max_tries=n_edges * N_SWAPS_PER_EDGE * 20,
             seed=SEED + i,
         )
+        assert nx.is_connected(G_rewired)
         if i == 0:
             # Simple-graph configuration-style null: exact degrees are
             # retained while the endpoint pairing is randomized.
