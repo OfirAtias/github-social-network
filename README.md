@@ -8,10 +8,10 @@ The main analysis uses course methods. Optional Label Propagation, GCN, GraphSAG
 
 ## Research Questions
 
-1. **RQ1 — Node classification:** Can network neighborhoods, centrality, communities, and learned graph representations classify developer field without using test labels?
-2. **RQ2 — Network versus content:** How much predictive value comes from network structure compared with content features, and what does their combination add?
-3. **RQ3 — Static edge reconstruction:** Can randomly hidden mutual-follow edges be reconstructed, and are same-field edges easier to reconstruct than cross-field edges?
-4. **RQ4 — Null models:** Are observed homophily and modularity unusual compared with label shuffling and degree-preserving graphs?
+1. **RQ1 - Node classification:** Can network neighborhoods, centrality, communities, and learned graph representations classify developer field without using test labels?
+2. **RQ2 - Network versus content:** How much predictive value comes from network structure compared with content features, and what does their combination add?
+3. **RQ3 - Static edge reconstruction:** Can randomly hidden mutual-follow edges be reconstructed, and are same-field edges easier to reconstruct than cross-field edges?
+4. **RQ4 - Null models:** Are observed homophily and modularity unusual compared with label shuffling and degree-preserving graphs?
 
 RQ3 reconstructs hidden edges from one static snapshot. It is not a time-based forecast and does not identify a causal link-formation mechanism.
 
